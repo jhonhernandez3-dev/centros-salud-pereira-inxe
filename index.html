@@ -66,6 +66,12 @@
   .btn{font:inherit; font-size:13px; padding:5px 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink); cursor:pointer}
   .btn:hover{border-color:var(--accent); color:var(--accent)}
   .toolbar{display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin:0 0 8px}
+  .sync-estado{font-size:12px; color:var(--muted); margin-right:auto; align-self:center}
+  .sync-estado::before{content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#9aa3af}
+  .sync-estado[data-s="ok"]::before{background:#2e9e4f}
+  .sync-estado[data-s="pend"]::before{background:#e0a100}
+  .sync-estado[data-s="err"]::before{background:#d62828}
+  .legend .sync-estado{display:block; margin-right:0; color:#5a6472}
   .src li{margin:4px 0}
   .src{color:var(--muted); font-size:13.5px; max-width:90ch; padding-left:18px}
   .src a, a{color:var(--accent)}
@@ -224,8 +230,8 @@
   </section>
 
   <h2>Tabla de control</h2>
-  <p class="lede">Las 34 filas de la hoja «Datos por sede», con el nombre y el nivel tal como están en el Excel. Primero van las 8 sedes con ubicación exacta y luego las 26 aproximadas (con su error estimado); con «Ver en mapa» se centra el mapa en la sede. En la última columna se marca «Ya tuvo reporte»: el punto de esa sede pasa a morado en el mapa (también se puede marcar desde su ventana emergente). La marca no cambia el nivel del Excel y se guarda en este navegador.</p>
-  <div class="toolbar"><button class="btn" id="clr" type="button">Quitar todas las marcas de reporte</button><button class="btn" id="dl" type="button">Descargar tabla (CSV)</button></div>
+  <p class="lede">Las 34 filas de la hoja «Datos por sede», con el nombre y el nivel tal como están en el Excel. Primero van las 8 sedes con ubicación exacta y luego las 26 aproximadas (con su error estimado); con «Ver en mapa» se centra el mapa en la sede. En la última columna se marca «Ya tuvo reporte»: el punto de esa sede pasa a morado en el mapa (también se puede marcar desde su ventana emergente). La marca no cambia el nivel del Excel y es compartida: se guarda en el servidor, así que se ve igual en cualquier dispositivo y la página se actualiza sola cada pocos segundos.</p>
+  <div class="toolbar"><span class="sync-estado" id="sync-estado-t" data-s="sync" role="status">Sincronizando marcas…</span><button class="btn" id="sync-ahora" type="button">Actualizar marcas</button><button class="btn" id="clr" type="button">Quitar todas las marcas de reporte</button><button class="btn" id="dl" type="button">Descargar tabla (CSV)</button></div>
   <div class="tablewrap">
     <table id="t-control">
       <thead><tr><th>Hospital</th><th>Nivel de afectación</th><th>Dirección</th><th>Latitud</th><th>Longitud</th><th>Estado de georreferenciación</th><th>¿Ya tuvo reporte?</th></tr></thead>
@@ -257,7 +263,7 @@
     <li><b>Nombres, niveles, tipos y direcciones:</b> leídos directamente del Excel. Los niveles no se modificaron; la equivalencia con la escala Baja/Media/Alta es Leve → Baja (verde), Moderado → Media (amarillo), Grave → Alta (rojo). «Sin reporte» no tiene equivalente y usa gris.</li>
     <li><b>Ubicación exacta (8 sedes):</b> punto de interés de la sede mapeado en OpenStreetMap (hospital o puesto de salud de la E.S.E. Salud Pereira), consultado con la API Overpass el 06/10/2026. En edificios o predios, la coordenada es el centro de la huella mapeada.</li>
     <li><b>Ubicación aproximada (26 sedes):</b> también solo con datos de OpenStreetMap (cruces de calles, barrios, veredas y puntos cercanos); el método y el error de cada una están en la tabla de arriba. Se distinguen en el mapa con borde punteado y un círculo de incertidumbre. No se tomó ninguna coordenada de Google Maps, porque sus condiciones no permiten mostrarla sobre un mapa que no sea de Google.</li>
-    <li><b>Casilla «Ya tuvo reporte»:</b> es una marca de seguimiento que pone el usuario; no es un dato del Excel y no altera el nivel de afectación. «Sin reporte» (gris) sigue siendo el nivel del Excel para las sedes sin daño reportado.</li>
+    <li><b>Casilla «Ya tuvo reporte»:</b> es una marca de seguimiento que pone el usuario; no es un dato del Excel y no altera el nivel de afectación. Se comparte entre dispositivos (se guarda en el servidor de la página), por lo que cualquier persona con el enlace puede marcarla o quitarla. «Sin reporte» (gris) sigue siendo el nivel del Excel para las sedes sin daño reportado.</li>
     <li><b>Límite municipal:</b> relación OSM 1343043 (Pereira), simplificada a 388 vértices (~90 m de tolerancia).</li>
     <li><b>Mapa base:</b> © colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL); capas alternas Esri y OpenTopoMap. Visor: Leaflet 1.9.4.</li>
   </ul>
@@ -317,7 +323,9 @@ const unmapped = rows.filter(r => r.lat === null);
 const BORDE = {'Grave':'#a31d1d', 'Moderado':'#a88a00', 'Leve':'#1d7a39', 'Sin reporte':'#5d626b'};   // borde del círculo de incertidumbre
 const MORADO = '#7b2cbf', MORADO_BORDE = '#5a189a';                                                      // sede marcada «Ya tuvo reporte»
 
-/* Marcas «Ya tuvo reporte»: se guardan en el navegador (localStorage); si no está disponible, funcionan igual durante la sesión */
+/* Marcas «Ya tuvo reporte»: viven en el servidor (se comparten entre dispositivos; ver «Marcas compartidas» al final del script).
+   Aquí se guarda además una copia en el navegador (localStorage) para mostrarlas al instante y sin conexión; si localStorage
+   no está disponible, funcionan igual durante la sesión */
 const LS_KEY = 'hospitalesPereira.yaTuvoReporte.v1';
 const reportadas = new Set();
 try { (JSON.parse(localStorage.getItem(LS_KEY) || '[]')).forEach(n => { if (rows.some(r => r.sede === n)) reportadas.add(n); }); } catch (e) {}
@@ -401,13 +409,17 @@ function actualizarConteos(){
   document.getElementById('k-rep').textContent = reportadas.size;
   document.querySelectorAll('#t-control tbody tr').forEach(tr => tr.classList.toggle('conreporte', reportadas.has(rows[tr.dataset.i].sede)));
 }
-function setReporte(r, val){
+function aplicarMarca(r, val){                                      // solo la parte visual: color del punto y casillas (mapa, ventana emergente y tabla)
   val ? reportadas.add(r.sede) : reportadas.delete(r.sede);
-  guardarMarcas();
   pintar(itemDe.get(r.fila_excel));
   document.querySelectorAll(`input.rep[data-f="${r.fila_excel}"]`).forEach(i => { i.checked = val; });
+}
+function setReporte(r, val){                                        // marca hecha por el usuario en este dispositivo
+  aplicarMarca(r, val);
+  guardarMarcas();
   actualizarConteos();
   if (!state.rep) refresh();                                         // si las «con reporte» están ocultas en la leyenda, desaparece el punto
+  encolarMarca(r.fila_excel, val);                                   // se envía al servidor para que la vean los demás dispositivos
 }
 function refresh(){
   items.forEach(it => { map.removeLayer(it.m); if (it.halo) map.removeLayer(it.halo); });
@@ -487,7 +499,8 @@ const Legend = L.Control.extend({
       <label><input type="checkbox" data-t="exacta" checked><span class="sw"></span><span>Ubicación exacta</span><span class="cnt">${exactas.length}</span></label>
       <label><input type="checkbox" data-t="aprox" checked><span class="sw aprox"></span><span>Ubicación aproximada</span><span class="cnt">${aprox.length}</span></label>
       <label><input type="checkbox" data-t="halos" checked><span class="sw ring"></span><span>Radio de error (aprox.)</span></label>
-      <small>Color = nivel del Excel. Morado = marcada «Ya tuvo reporte» (en el popup o en la tabla). Borde punteado = ubicación aproximada (la sede está dentro del círculo).</small>
+      <small>Color = nivel del Excel. Morado = marcada «Ya tuvo reporte» (en el popup o en la tabla; la marca se comparte con los demás dispositivos). Borde punteado = ubicación aproximada (la sede está dentro del círculo).</small>
+      <small class="sync-estado" id="sync-estado" data-s="sync" role="status">Sincronizando marcas…</small>
       <hr><label><input type="checkbox" id="lbl" checked> <span>Mostrar nombres</span></label>
       <small>P.S. = Puesto de Salud. Al acercar el mapa aparecen todos los nombres.</small></div>`;
     const h3 = el.querySelector('h3');
@@ -657,6 +670,7 @@ function pvCerrar(){
   map.setView(pvPrev.c, pvPrev.z, {animate:false});
   layoutLabels();
   const b = pvOpener && document.contains(pvOpener) ? pvOpener : document.getElementById('btn-imprimir'); if (b) b.focus();
+  sincronizar();                                                      // pone al día las marcas que pudieran haber cambiado mientras la hoja estaba abierta
 }
 function pvCambioHoja(){
   pvCfg.papel = pv.papel.value; pvCfg.orient = pv.orient.value;
@@ -739,11 +753,100 @@ if (unmapped.length) {
 actualizarConteos();
 document.getElementById('clr').addEventListener('click', () => {
   if (!reportadas.size) return;
-  const todas = rows.filter(r => reportadas.has(r.sede));
-  reportadas.clear(); guardarMarcas();
-  todas.forEach(r => { pintar(itemDe.get(r.fila_excel)); document.querySelectorAll(`input.rep[data-f="${r.fila_excel}"]`).forEach(i => { i.checked = false; }); });
-  actualizarConteos();
+  const n = reportadas.size;
+  if (!confirm(`Se quitará la marca «Ya tuvo reporte» de ${n} ${n === 1 ? 'sede' : 'sedes'} en TODOS los dispositivos. ¿Continuar?`)) return;
+  rows.filter(r => reportadas.has(r.sede)).forEach(r => aplicarMarca(r, false));
+  guardarMarcas(); actualizarConteos();
+  if (!state.rep) refresh();
+  encolarQuitarTodas();
 });
+
+/* ---------- Marcas compartidas entre dispositivos ----------
+   Las marcas «Ya tuvo reporte» se guardan en el servidor (función de Netlify + Netlify Blobs, /api/marcas), una por sede
+   (clave = fila de la sede en el Excel). Cada dispositivo las consulta al abrir la página, al volver a la pestaña y cada 20 s;
+   lo que se marca o se quita se envía de inmediato. Sin conexión, los cambios quedan pendientes en el navegador y se envían al
+   reconectar. La primera vez que un navegador se sincroniza, las marcas que ya tenía guardadas se suman a las compartidas. */
+const API = /\.netlify\.app$/.test(location.hostname) ? '/api/marcas' : 'https://centros-salud-pereira-inxe.netlify.app/api/marcas';
+const SYNC_MS = 20000, PEND_KEY = 'hospitalesPereira.pendientes.v2', MIG_KEY = 'hospitalesPereira.sincronizado.v2';
+const filaDeSede = new Map(rows.map(r => [r.sede, r.fila_excel])), sedeDeFila = new Map(rows.map(r => [r.fila_excel, r.sede]));
+const pend = new Map();                  // fila -> true/false: cambios de este dispositivo que el servidor aún no confirmó
+let pendTodas = false;                   // «quitar todas» aún no enviado
+let migrado = false;                     // ya se subieron las marcas que este navegador tenía antes de existir la sincronización
+try {
+  const p = JSON.parse(localStorage.getItem(PEND_KEY) || '{}');
+  Object.entries(p.m || {}).forEach(([f, v]) => { if (sedeDeFila.has(+f) && typeof v === 'boolean') pend.set(+f, v); });
+  pendTodas = p.t === true;
+  migrado = localStorage.getItem(MIG_KEY) === '1';
+} catch (e) {}
+const guardarPend = () => { try { localStorage.setItem(PEND_KEY, JSON.stringify({m: Object.fromEntries(pend), t: pendTodas})); } catch (e) {} };
+
+async function api(cuerpo){                                          // sin cuerpo: consulta las marcas; con cuerpo: envía un cambio. Devuelve el conjunto de filas marcadas
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch(API, cuerpo === undefined
+      ? {cache: 'no-store', signal: ctl.signal}
+      : {method: 'POST', headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: JSON.stringify(cuerpo), signal: ctl.signal});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d || !Array.isArray(d.marcadas)) throw new Error('respuesta no válida');
+    return new Set(d.marcadas.filter(f => sedeDeFila.has(f)));
+  } finally { clearTimeout(t); }
+}
+
+let ultimaSync = null, errSync = false, sincronizando = false, sincEnCurso = false, sincRepetir = false;
+function mostrarEstado(){
+  const n = pend.size + (pendTodas ? 1 : 0);
+  let s, txt;
+  if (n && sincronizando) { s = 'sync'; txt = 'Enviando cambios…'; }
+  else if (n) { s = 'pend'; txt = `Sin conexión con el servidor: ${n} ${n === 1 ? 'cambio' : 'cambios'} por enviar (se reintenta solo)`; }
+  else if (errSync) { s = 'err'; txt = 'No se pudo consultar las marcas compartidas; se muestran las guardadas en este dispositivo (se reintenta solo)'; }
+  else if (ultimaSync) { s = 'ok'; txt = 'Marcas compartidas · actualizado a las ' + ultimaSync.toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'}); }
+  else { s = 'sync'; txt = 'Sincronizando marcas…'; }
+  document.querySelectorAll('.sync-estado').forEach(el => { el.dataset.s = s; el.textContent = txt; });
+}
+function aplicarServidor(srv){                                       // el servidor manda; encima se superponen los cambios locales aún sin enviar
+  const nuevo = new Set([...srv].map(f => sedeDeFila.get(f)));
+  if (pendTodas) nuevo.clear();
+  pend.forEach((v, f) => { const nombre = sedeDeFila.get(f); v ? nuevo.add(nombre) : nuevo.delete(nombre); });
+  const cambian = rows.filter(r => reportadas.has(r.sede) !== nuevo.has(r.sede));
+  if (!cambian.length) return;
+  cambian.forEach(r => aplicarMarca(r, nuevo.has(r.sede)));
+  guardarMarcas(); actualizarConteos();
+  if (!state.rep) refresh();
+}
+async function sincronizar(){
+  if (pvAbierto) return;                                             // con la hoja de impresión abierta no se tocan los puntos; se retoma al cerrarla
+  if (sincEnCurso) { sincRepetir = true; return; }
+  sincEnCurso = sincronizando = true; mostrarEstado();
+  try {
+    let srv;
+    if (pendTodas) { srv = await api({borrarTodas: true}); pendTodas = false; guardarPend(); }
+    else srv = await api();
+    if (!migrado) {                                                  // primera vez: lo que este navegador ya tenía marcado se suma a lo compartido
+      reportadas.forEach(nombre => { const f = filaDeSede.get(nombre); if (!srv.has(f) && !pend.has(f)) pend.set(f, true); });
+      guardarPend();
+    }
+    for (const [f, v] of [...pend]) {
+      srv = await api({f, v});
+      if (pend.get(f) === v) pend.delete(f);                         // si mientras tanto se cambió de nuevo, se envía en la vuelta siguiente
+      guardarPend();
+    }
+    if (!migrado) { migrado = true; try { localStorage.setItem(MIG_KEY, '1'); } catch (e) {} }
+    errSync = false; ultimaSync = new Date();
+    if (!pvAbierto) aplicarServidor(srv);
+  } catch (e) { errSync = true; }
+  finally {
+    sincEnCurso = sincronizando = false; mostrarEstado();
+    if (sincRepetir) { sincRepetir = false; sincronizar(); }
+  }
+}
+function encolarMarca(fila, val){ pend.set(fila, val); guardarPend(); mostrarEstado(); sincronizar(); }
+function encolarQuitarTodas(){ pend.clear(); pendTodas = true; guardarPend(); mostrarEstado(); sincronizar(); }
+setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, SYNC_MS);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
+window.addEventListener('online', sincronizar);
+document.getElementById('sync-ahora').addEventListener('click', sincronizar);
+sincronizar();
 
 /* ---------- Descarga CSV ---------- */
 document.getElementById('dl').addEventListener('click', () => {
