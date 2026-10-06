@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de afectación de hospitales de Pereira, Risaralda</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root{
+    --bg:#f3f4f6; --surface:#ffffff; --ink:#1c2430; --muted:#586272; --line:#d7dce3; --soft:#eef0f3;
+    --accent:#1f4e79;
+    --verde:#2e9e4f; --amarillo:#f2c500; --rojo:#d62828; --gris:#8c919a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1318; --surface:#171c23; --ink:#e7eaee; --muted:#9aa4b2; --line:#2b323d; --soft:#1f252e; --accent:#7fb2e5;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  .page{max-width:1320px; margin:0 auto; padding:20px 16px 48px}
+
+  /* Hoja cartográfica: título + mapa en un mismo marco */
+  .sheet{background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .sheet-head{display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline; justify-content:space-between;
+              padding:14px 20px; border-bottom:1px solid var(--line)}
+  .sheet-head h1{margin:0; font-size:clamp(18px,2.4vw,24px); line-height:1.25; font-weight:700; letter-spacing:-.01em}
+  .sheet-head p{margin:0; color:var(--muted); font-size:13px}
+  #map{height:clamp(480px,74vh,820px); width:100%; background:#dfe5ea}
+
+  .kpis{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0}
+  .kpi{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 16px}
+  .kpi b{display:block; font-size:28px; line-height:1.1; font-variant-numeric:tabular-nums}
+  .kpi span{color:var(--muted); font-size:13px}
+
+  h2{font-size:18px; margin:32px 0 4px}
+  .lede{margin:0 0 12px; color:var(--muted); font-size:13.5px; max-width:80ch}
+  .tablewrap{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; font-size:13.5px}
+  th,td{padding:9px 12px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line)}
+  th{background:var(--soft); font-weight:600; white-space:nowrap; position:sticky; top:0}
+  tr:last-child td{border-bottom:0}
+  td.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+  .chip{display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+  .dot{width:12px; height:12px; border-radius:50%; border:1.5px solid #111; flex:none; display:inline-block}
+  .dot.aprox{border-style:dashed; border-width:2px}
+  .ok{color:#1b7a3a; font-weight:600} .no{color:#a33a1a; font-weight:600} .ap{color:#8a5a00; font-weight:600}
+  .conf{display:inline-block; font-size:12px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); background:var(--soft); white-space:nowrap}
+  td small{color:var(--muted)}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .ok{color:#6fd08c} :root:not([data-theme="light"]) .no{color:#ff9d7a} :root:not([data-theme="light"]) .ap{color:#f0b95a} }
+  .btn{font:inherit; font-size:13px; padding:5px 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink); cursor:pointer}
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .toolbar{display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin:0 0 8px}
+  .src li{margin:4px 0}
+  .src{color:var(--muted); font-size:13.5px; max-width:90ch; padding-left:18px}
+  .src a, a{color:var(--accent)}
+
+  /* Controles dentro del mapa */
+  .ctl{background:rgba(255,255,255,.96); color:#1c2430; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); font:13px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .legend{padding:10px 12px; min-width:236px; max-width:290px}
+  .legend h3{margin:0; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; user-select:none}
+  .legend h3 .car{font-size:11px; color:#5a6472; transition:transform .15s}
+  .legend .body{margin-top:6px}
+  .legend.collapsed .body{display:none}
+  .legend.collapsed{min-width:0}
+  .legend.collapsed h3 .car{transform:rotate(-90deg)}
+  .legend label{display:flex; align-items:center; gap:8px; margin:5px 0; cursor:pointer}
+  .legend .cnt{margin-left:auto; color:#5a6472; font-variant-numeric:tabular-nums; padding-left:10px}
+  .legend small{display:block; color:#5a6472; margin-top:6px; font-size:11.5px; line-height:1.35}
+  .legend hr{border:0; border-top:1px solid #d9dde3; margin:8px 0}
+  .north{padding:6px 9px 4px; text-align:center}
+  .north svg{display:block; margin:0 auto}
+  .north b{font-size:12px}
+  .viewbtns{display:flex; flex-direction:column}
+  .viewbtns button{font:600 12px system-ui,sans-serif; padding:6px 9px; border:0; background:transparent; color:#1c2430; cursor:pointer; text-align:left}
+  .viewbtns button+button{border-top:1px solid #d9dde3}
+  .viewbtns button:hover{background:#eef0f3}
+  .leaflet-tooltip.lbl{font:600 12px system-ui,sans-serif; padding:2px 6px; border:1px solid #333; background:rgba(255,255,255,.95); color:#111}
+  .leaflet-popup-content{margin:12px 14px; font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#1c2430}
+  .leaflet-popup-content h4{margin:0 0 6px; font-size:15px; line-height:1.25}
+  .pop dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:3px 10px}
+  .pop dt{color:#5a6472} .pop dd{margin:0}
+  .pop .note{margin:8px 0 0; padding-top:6px; border-top:1px solid #e1e4e9; color:#4b5563; font-size:12px}
+  .pop .warn{margin:0 0 8px; padding:4px 8px; border-radius:6px; background:#fff3d6; color:#6b4a00; font-size:12px}
+  .legend .sw{width:14px; height:14px; border-radius:50%; border:2px solid #111; flex:none; display:inline-block}
+  .legend .sw.aprox{border-style:dashed; background:#c9ced6}
+  .legend .sw.ring{border:1px dashed #5a6472; background:rgba(120,130,145,.18)}
+  .legend .sw.rep{background:#7b2cbf}
+  /* Nombre de la sede bajo el punto: sin caja, con contorno blanco para que se lea sobre cualquier mapa base */
+  .leaflet-tooltip.lbl2{background:transparent; border:0; box-shadow:none; padding:0; margin:0; color:#111; white-space:nowrap; pointer-events:none;
+    font:600 var(--lbl-size,11px)/1.15 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    text-shadow:-1.5px 0 #fff,1.5px 0 #fff,0 -1.5px #fff,0 1.5px #fff,-1px -1px #fff,1px -1px #fff,-1px 1px #fff,1px 1px #fff,0 0 4px #fff}
+  .leaflet-tooltip.lbl2:before{display:none}
+  .pop .repbox{display:flex; align-items:center; gap:8px; margin:0 0 8px; padding:6px 8px; border:1px solid #cdb8ee; border-radius:7px; background:#f4ecff; color:#3b1070; cursor:pointer; font-weight:600}
+  .pop .repbox input{width:17px; height:17px; accent-color:#7b2cbf; flex:none; margin:0; cursor:pointer}
+  .pop .repbox small{display:block; font-weight:400; color:#5b3a8a; font-size:11.5px}
+  td.rep{white-space:nowrap}
+  td.rep label{display:inline-flex; align-items:center; gap:7px; cursor:pointer}
+  td.rep input{width:17px; height:17px; accent-color:#7b2cbf; cursor:pointer}
+  tr.conreporte td:first-child{box-shadow:inset 4px 0 0 #7b2cbf}
+  @media (max-width:640px){
+    .kpis{grid-template-columns:1fr 1fr; gap:8px} .kpi{padding:10px} .kpi b{font-size:22px}
+    .legend{min-width:0; max-width:210px; padding:8px 10px; font-size:12px}
+    .page{padding:12px 10px 40px}
+  }
+  @media print{ body{background:#fff} .page{max-width:none} .tablewrap{overflow:visible} }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <section class="sheet" aria-label="Mapa">
+    <div class="sheet-head">
+      <h1>Mapa de afectación de hospitales de Pereira, Risaralda</h1>
+      <p>E.S.E. Salud Pereira · sismo del 10/08/2026 · Fuente de los niveles: matriz INXE-264303, hoja «Datos por sede»</p>
+    </div>
+    <p id="aviso" hidden style="margin:0; padding:8px 20px; font-size:12.5px; background:#fff8e1; color:#5b4a00; border-bottom:1px solid #ecd98a">Estás viendo el archivo abierto directamente: el mapa base es Esri porque OpenStreetMap bloquea las páginas locales. Con Live Server (VS Code) se usa OpenStreetMap; ambas capas se pueden cambiar con el icono de capas.</p>
+    <div id="map" role="application" aria-label="Mapa interactivo de sedes de la E.S.E. Salud Pereira"></div>
+  </section>
+
+  <section class="kpis" aria-label="Resumen">
+    <div class="kpi"><b id="k-total"></b><span>sedes en el Excel (todas están en el mapa)</span></div>
+    <div class="kpi"><b id="k-ok"></b><span>con ubicación exacta (punto en OpenStreetMap)</span></div>
+    <div class="kpi"><b id="k-ap"></b><span>con ubicación aproximada (por dirección o zona)</span></div>
+    <div class="kpi"><b id="k-rep" style="color:#7b2cbf">0</b><span>con reporte marcado (puntos morados)</span></div>
+  </section>
+
+  <h2>Tabla de control</h2>
+  <p class="lede">Las 34 filas de la hoja «Datos por sede», con el nombre y el nivel tal como están en el Excel. Primero van las 8 sedes con ubicación exacta y luego las 26 aproximadas (con su error estimado); con «Ver en mapa» se centra el mapa en la sede. En la última columna se marca «Ya tuvo reporte»: el punto de esa sede pasa a morado en el mapa (también se puede marcar desde su ventana emergente). La marca no cambia el nivel del Excel y se guarda en este navegador.</p>
+  <div class="toolbar"><button class="btn" id="clr" type="button">Quitar todas las marcas de reporte</button><button class="btn" id="dl" type="button">Descargar tabla (CSV)</button></div>
+  <div class="tablewrap">
+    <table id="t-control">
+      <thead><tr><th>Hospital</th><th>Nivel de afectación</th><th>Dirección</th><th>Latitud</th><th>Longitud</th><th>Estado de georreferenciación</th><th>¿Ya tuvo reporte?</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h2>Ubicaciones aproximadas: cómo se estimó cada una</h2>
+  <p class="lede">Estas sedes no tienen un punto propio en OpenStreetMap, así que se ubicaron a partir de su dirección del Excel: el cruce de calles de la dirección (calculado sobre las vías de OSM), el barrio o la vereda donde queda, o un punto cercano. «Error estimado» es el radio del círculo punteado que se ve en el mapa: la sede debería estar dentro de él. Es una ubicación para ver la distribución espacial, no una coordenada de campo.</p>
+  <div class="tablewrap">
+    <table id="t-aprox">
+      <thead><tr><th>Sede (nombre en el Excel)</th><th>Nivel</th><th>Dirección en el Excel</th><th>Error estimado</th><th>Cómo se ubicó</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="sec-err" hidden>
+    <h2>Tabla de errores: sedes no ubicadas</h2>
+    <div class="tablewrap">
+      <table id="t-err">
+        <thead><tr><th>Sede (nombre en el Excel)</th><th>Nivel</th><th>Dirección en el Excel</th><th>Motivo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Fuentes y método</h2>
+  <ul class="src">
+    <li><b>Nombres, niveles, tipos y direcciones:</b> leídos directamente del Excel. Los niveles no se modificaron; la equivalencia con la escala Baja/Media/Alta es Leve → Baja (verde), Moderado → Media (amarillo), Grave → Alta (rojo). «Sin reporte» no tiene equivalente y usa gris.</li>
+    <li><b>Ubicación exacta (8 sedes):</b> punto de interés de la sede mapeado en OpenStreetMap (hospital o puesto de salud de la E.S.E. Salud Pereira), consultado con la API Overpass el 06/10/2026. En edificios o predios, la coordenada es el centro de la huella mapeada.</li>
+    <li><b>Ubicación aproximada (26 sedes):</b> también solo con datos de OpenStreetMap (cruces de calles, barrios, veredas y puntos cercanos); el método y el error de cada una están en la tabla de arriba. Se distinguen en el mapa con borde punteado y un círculo de incertidumbre. No se tomó ninguna coordenada de Google Maps, porque sus condiciones no permiten mostrarla sobre un mapa que no sea de Google.</li>
+    <li><b>Casilla «Ya tuvo reporte»:</b> es una marca de seguimiento que pone el usuario; no es un dato del Excel y no altera el nivel de afectación. «Sin reporte» (gris) sigue siendo el nivel del Excel para las sedes sin daño reportado.</li>
+    <li><b>Límite municipal:</b> relación OSM 1343043 (Pereira), simplificada a 388 vértices (~90 m de tolerancia).</li>
+    <li><b>Mapa base:</b> © colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL); capas alternas Esri y OpenTopoMap. Visor: Leaflet 1.9.4.</li>
+  </ul>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const D = {"rows":[{"fila_excel":6,"sede":"Hospital San Joaquín","tipo":"Hospital","alcance":"Sí","nivel":"Grave","equiv":"Alta","color":"rojo","hex":"#d62828","direccion":"Carrera 26 No. 78-80, San Joaquín","dir_fuente":"listado ESE","dir_poliza":"Hospital de Cuba – Carrera 26 78-80","lat":4.798237,"lon":-75.741981,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["relation/7367016","Unidad Intermedia Cuba ESE Salud"]],"osm_name":"Unidad Intermedia Cuba ESE Salud","geom":"centro de la huella mapeada","nota":"El Excel (columna póliza) llama a esta sede «Hospital de Cuba – Carrera 26 78-80»; en OSM figura como «Unidad Intermedia Cuba ESE Salud».","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":9,"sede":"Puesto de Salud Altagracia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Grave","equiv":"Alta","color":"rojo","hex":"#d62828","direccion":"Calle principal de Altagracia, junto a Acucesdi","dir_fuente":"listado ESE","dir_poliza":"Corregimiento Altagracia","lat":4.739832,"lon":-75.712966,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["way/692619273","IPS ESE Salud Pereira - Puesto de Salud Altagracia"]],"osm_name":"IPS ESE Salud Pereira - Puesto de Salud Altagracia","geom":"centro de la huella mapeada","nota":"","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":10,"sede":"Hospital Kennedy","tipo":"Hospital","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Carrera 12B Comuna Oriente","dir_fuente":"listado ESE","dir_poliza":"Hospital de Kennedy – Carrera 12B Comuna Oriente","lat":4.806943,"lon":-75.671262,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["relation/7750111","ESE Salud Pereira - Unidad Intermedia Kennedy"]],"osm_name":"ESE Salud Pereira - Unidad Intermedia Kennedy","geom":"centro de la huella mapeada","nota":"El Excel (columna póliza) llama a esta sede «Hospital de Kennedy – Carrera 12B Comuna Oriente»; en OSM figura como «Unidad Intermedia Kennedy».","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":16,"sede":"Hospital La 40 Centro","tipo":"Hospital","alcance":"Sí","nivel":"Moderado","equiv":"Media","color":"amarillo","hex":"#f2c500","direccion":"Carrera 7 No. 40-34, 2º piso, Hospital del Centro","dir_fuente":"listado ESE","dir_poliza":"Hospital del Centro – Carrera 7 40-34","lat":4.817173,"lon":-75.7123,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["node/10782655735","Unidad intermedia Centro ESE Salud Pereira"]],"osm_name":"Unidad intermedia Centro ESE Salud Pereira","geom":"punto OSM (addr: Carrera 7 #40)","nota":"El Excel indica «Hospital del Centro – Carrera 7 40-34»; el punto OSM «Unidad intermedia Centro ESE Salud Pereira» está en la Carrera 7 #40.","metodo":"Punto de interés de la sede en OSM (punto OSM (addr: Carrera 7 #40)).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":21,"sede":"Puesto de Salud Villa Consota","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Calle 70 con Carrera 39 (esquina barrio Panorama, sector Cuba)","dir_fuente":"listado ESE","dir_poliza":"Cll 70 con Cra 39","lat":4.801121,"lon":-75.727673,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["way/1191938373","Centro de Salud Villa Consota (operador: ESE Salud Pereira)"]],"osm_name":"Centro de Salud Villa Consota (operador: ESE Salud Pereira)","geom":"centro de la huella mapeada","nota":"Mismo nombre de sede con variante «Centro de Salud» en OSM; operador ESE Salud Pereira.","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":24,"sede":"Puesto de Salud Fonda Central","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento Cerritos, sector Fonda Central, zona rural de Pereira","dir_fuente":"listado ESE","dir_poliza":"29RS vía Cartago, enseguida de comunitaria Cerritos sede Sagrado Corazón","lat":4.8045,"lon":-75.823736,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["way/1191941208","Puesto de Salud fonda Central (operador: ESE Salud Pereira)"]],"osm_name":"Puesto de Salud fonda Central (operador: ESE Salud Pereira)","geom":"centro de la huella mapeada","nota":"","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":25,"sede":"Puesto de Salud Morelia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Morelia, vía Pereira - Alcalá","dir_fuente":"listado ESE","dir_poliza":"29Q – Corregimiento Morelia","lat":4.773367,"lon":-75.758556,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["node/1393085033","IPS ESE Salud Pereira - Puesto de Salud Morelia"]],"osm_name":"IPS ESE Salud Pereira - Puesto de Salud Morelia","geom":"punto OSM","nota":"","metodo":"Punto de interés de la sede en OSM (punto OSM).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":26,"sede":"Puesto de Salud Puerto Caldas","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento Puerto Caldas, vía municipio de Cartago (Valle)","dir_fuente":"listado ESE","dir_poliza":"Vía Papeles Nacionales","lat":4.758941,"lon":-75.900521,"precision":"exacta","error_m":0,"confianza":"Alta","refs":[["way/1170413417","Puesto de Salud Puerto Caldas (operador: ESE Salud Pereira)"]],"osm_name":"Puesto de Salud Puerto Caldas (operador: ESE Salud Pereira)","geom":"centro de la huella mapeada","nota":"","metodo":"Punto de interés de la sede en OSM (centro de la huella mapeada).","estado":"Georreferenciado (exacto)","motivo":""},{"fila_excel":7,"sede":"Puesto de Salud Boston","tipo":"Puesto de salud","alcance":"Sí","nivel":"Grave","equiv":"Alta","color":"rojo","hex":"#d62828","direccion":"Carrera 23 No. 20-66","dir_fuente":"listado ESE","dir_poliza":"Cra 23 20B-20","lat":4.800056,"lon":-75.696973,"precision":"aprox","error_m":300,"confianza":"Alta","refs":[["node/8633111524","Boston (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Cruce de la Carrera 23 con la Calle 20 calculado sobre las vías de OSM (la sede está en Cra 23 #20-66, a media cuadra). Control: queda a ~280 m del nodo del barrio Boston en OSM.","estado":"Aproximado (±300 m)","motivo":""},{"fila_excel":8,"sede":"Puesto de Salud San Nicolás","tipo":"Puesto de salud","alcance":"Sí","nivel":"Grave","equiv":"Alta","color":"rojo","hex":"#d62828","direccion":"Carrera 15 No. 27-90, Barrio San Nicolás","dir_fuente":"listado ESE","dir_poliza":"Cra 15 7-76","lat":4.808122,"lon":-75.701815,"precision":"aprox","error_m":300,"confianza":"Alta","refs":[["node/8633144009","San Nicolás (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Cruce de la Carrera 15 con la Calle 27 calculado sobre las vías de OSM (dirección del listado ESE: Cra 15 #27-90). Control: a ~270 m del nodo del barrio San Nicolás en OSM. La póliza da otra dirección (Cra 15 #7-76); se usó la del listado ESE.","estado":"Aproximado (±300 m)","motivo":""},{"fila_excel":11,"sede":"Puesto de Salud Villa Santana","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Calle 17 Este Carrera 21 Vía Canceles","dir_fuente":"listado ESE","dir_poliza":"Cra 21 con Cll 17B Este","lat":4.79591,"lon":-75.66708,"precision":"aprox","error_m":500,"confianza":"Alta","refs":[["node/8633063858","Villa Santana (barrio)"],["node/703494682","Canceles"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo del barrio Villa Santana en OSM. La Calle 17 Este y la Carrera 21 no se cruzan en OSM, así que no se interpoló por cruce. Consistente con «Vía Canceles» (Canceles queda ~750 m al oeste).","estado":"Aproximado (±500 m)","motivo":""},{"fila_excel":12,"sede":"Puesto de Salud La Florida","tipo":"Puesto de salud","alcance":"Sí","nivel":"Moderado","equiv":"Media","color":"amarillo","hex":"#f2c500","direccion":"Centro Poblado vereda La Florida","dir_fuente":"listado ESE","dir_poliza":"Corregimiento La Florida","lat":4.7591,"lon":-75.61315,"precision":"aprox","error_m":500,"confianza":"Alta","refs":[["relation/12321481","La Florida (poblado)"],["way/536790491","Subestación de policía La Florida"]],"osm_name":"","geom":"","nota":"","metodo":"Centro del poblado «La Florida» (place=village) en OSM; junto a él están la Subestación de Policía y el Terminal La Florida. El Excel dice «Centro Poblado vereda La Florida».","estado":"Aproximado (±500 m)","motivo":""},{"fila_excel":13,"sede":"Puesto de Salud La Bella","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Centro Poblado vereda La Bella","dir_fuente":"listado ESE","dir_poliza":"Vda La Bella, corregimiento La Florida","lat":4.7637,"lon":-75.63736,"precision":"aprox","error_m":600,"confianza":"Media","refs":[["node/703494686","La Bella"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo del centro poblado (place=village) «La Bella» en OSM.","estado":"Aproximado (±600 m)","motivo":""},{"fila_excel":14,"sede":"Puesto de Salud Mundo Nuevo","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Vereda Mundo Nuevo, Vía el Chocho-Mundo Nuevo","dir_fuente":"listado ESE","dir_poliza":"Vía al Chocho, Mundo Nuevo","lat":4.78576,"lon":-75.68255,"precision":"aprox","error_m":600,"confianza":"Media","refs":[["way/426682350","Mundo Nuevo"]],"osm_name":"","geom":"","nota":"","metodo":"Centro del caserío «Mundo Nuevo» (place=hamlet) en OSM, sobre la vía Mundo Nuevo – La Bella / Vía al Chocho.","estado":"Aproximado (±600 m)","motivo":""},{"fila_excel":15,"sede":"Puesto de Salud San José","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Vía San José la Florida","dir_fuente":"listado ESE","dir_poliza":"P.S. San José","lat":4.786,"lon":-75.651,"precision":"aprox","error_m":1200,"confianza":"Baja","refs":[["node/703494728","San José"]],"osm_name":"","geom":"","nota":"","metodo":"El nodo de la vereda «San José» en OSM queda justo sobre el límite municipal (del lado de Santa Rosa de Cabal); se corrió ~500 m hacia adentro de Pereira. La sede está «vía San José – La Florida», así que puede estar a lo largo de esa vía.","estado":"Aproximado (±1200 m)","motivo":""},{"fila_excel":17,"sede":"Puesto de Salud Santa Teresita","tipo":"Puesto de salud","alcance":"Sí","nivel":"Moderado","equiv":"Media","color":"amarillo","hex":"#f2c500","direccion":"Cra 1 N° 17-16","dir_fuente":"listado ESE","dir_poliza":"Cra 1 17-04","lat":4.819516,"lon":-75.691947,"precision":"aprox","error_m":250,"confianza":"Alta","refs":[["relation/7762950","Santa Teresita (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Cruce de la Carrera 1 con la Calle 17 calculado sobre las vías de OSM (Cra 1 #17-16). Control: cae dentro del barrio Santa Teresita, a ~110 m del centro de su límite en OSM.","estado":"Aproximado (±250 m)","motivo":""},{"fila_excel":18,"sede":"Puesto de Salud San Camilo","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Calle 34 Bis No. 3 B 04","dir_fuente":"listado ESE","dir_poliza":"Cll 34 3B-04","lat":4.8189,"lon":-75.70645,"precision":"aprox","error_m":400,"confianza":"Alta","refs":[["way/75265596","Calle 34"],["way/543023068","Carrera 3"],["relation/7762699","San Camilo (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Dirección Calle 34 Bis #3B-04. La Carrera 3B no está mapeada en esa zona de OSM, así que se tomó el punto entre el cruce de la Calle 34 con la Carrera 3 y su cruce con la Carrera 4 (la 3B queda entre ambas). Control: a ~150 m del centro del barrio San Camilo en OSM. Las «Carrera 3B» que sí existen en OSM están en Dosquebradas, fuera de Pereira.","estado":"Aproximado (±400 m)","motivo":""},{"fila_excel":19,"sede":"Puesto de Salud Alfonso López","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Carrera 7 con Calle 2, barrio Alfonso López","dir_fuente":"listado ESE","dir_poliza":"Cr 7 Bis 2E-05","lat":4.81128,"lon":-75.68,"precision":"aprox","error_m":400,"confianza":"Alta","refs":[["way/542611475","Carrera 7"],["way/75564240","Calle 2"],["relation/7757023","Alfonso López (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Cruce de la Carrera 7 con la Calle 2 en OSM (Cra 7 con Calle 2, barrio Alfonso López); la dirección de la póliza (Cr 7 Bis #2E-05) cae a ~100 m de ese cruce. Se tomó el punto medio. Control: a ~200 m del centro del barrio Alfonso López en OSM.","estado":"Aproximado (±400 m)","motivo":""},{"fila_excel":20,"sede":"Puesto de Salud Perla del Otún","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Cra. 40 # 74A-1, sector Los 2500 Lotes, junto a la iglesia","dir_fuente":"listado ESE","dir_poliza":"Cra 40 74A-01","lat":4.795945,"lon":-75.729505,"precision":"aprox","error_m":250,"confianza":"Alta","refs":[["node/8633140405","Perla del Otún (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Cruce de la Carrera 40 con la Calle 74A calculado sobre las vías de OSM (Cra 40 #74A-1, sector Los 2500 Lotes). Control: a ~110 m del nodo del barrio Perla del Otún en OSM.","estado":"Aproximado (±250 m)","motivo":""},{"fila_excel":22,"sede":"Puesto de Salud Arabia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Arabia, Carrera 4 con Calle Principal de Ingreso","dir_fuente":"listado ESE","dir_poliza":"Corregimiento Arabia","lat":4.71916,"lon":-75.71566,"precision":"aprox","error_m":400,"confianza":"Alta","refs":[["node/703494595","Arabia"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo del centro poblado (place=village) «Arabia» en OSM; la sede queda en la calle principal de ingreso.","estado":"Aproximado (±400 m)","motivo":""},{"fila_excel":23,"sede":"Puesto de Salud Crucero de Combia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento Crucero de Combia, vía Pereira – Marsella","dir_fuente":"listado ESE","dir_poliza":"Vía Pereira-Marsella, frente a Coop. Departamental de Caficultores","lat":4.83098,"lon":-75.75704,"precision":"aprox","error_m":400,"confianza":"Alta","refs":[["node/703494683","Crucero de Combia"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo del caserío (place=hamlet) «Crucero de Combia» en OSM; la sede está en el cruce de la vía Pereira–Marsella.","estado":"Aproximado (±400 m)","motivo":""},{"fila_excel":27,"sede":"Puesto de Salud Betulia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Betulia, vía Morelia","dir_fuente":"listado ESE","dir_poliza":"Vda Betulia","lat":4.72418,"lon":-75.76219,"precision":"aprox","error_m":800,"confianza":"Media","refs":[["node/703494567","Betulia"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo de la vereda (place=village) «Betulia» en OSM (vía Morelia).","estado":"Aproximado (±800 m)","motivo":""},{"fila_excel":28,"sede":"Puesto de Salud Combia San Vicente","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Combia Alta, vereda San Vicente","dir_fuente":"listado ESE","dir_poliza":"P.S. San Vicente – Cra 7 Cll 7","lat":4.842885,"lon":-75.747275,"precision":"aprox","error_m":2500,"confianza":"Baja","refs":[["node/703494683","Crucero de Combia"],["node/703494739","Pital de Combia"]],"osm_name":"","geom":"","nota":"","metodo":"OSM no tiene la vereda San Vicente de Combia Alta. Se puso en el punto medio entre los nodos «Crucero de Combia» y «Pital de Combia», que delimitan la zona. Ubicación de baja confianza.","estado":"Aproximado (±2500 m)","motivo":""},{"fila_excel":29,"sede":"Puesto de Salud El Retiro","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Morelia, vereda El Retiro","dir_fuente":"listado ESE","dir_poliza":"Vda El Retiro","lat":4.75826,"lon":-75.7439,"precision":"aprox","error_m":600,"confianza":"Media","refs":[["node/6277414428","Escuela El Retiro"],["node/6277389866","Capilla Santa Maria El Retiro"]],"osm_name":"","geom":"","nota":"","metodo":"Escuela y capilla de la vereda El Retiro en OSM (centro de la vereda, corregimiento de Morelia).","estado":"Aproximado (±600 m)","motivo":""},{"fila_excel":30,"sede":"Puesto de Salud Montelargo","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento de Morelia, vereda Montelargo","dir_fuente":"listado ESE","dir_poliza":"Vda Montelargo, variante Condina","lat":4.75638,"lon":-75.72149,"precision":"aprox","error_m":700,"confianza":"Media","refs":[["node/703494649","Montelargo"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo de la vereda (place=locality) «Montelargo» en OSM (variante Condina, corregimiento de Morelia).","estado":"Aproximado (±700 m)","motivo":""},{"fila_excel":31,"sede":"Puesto de Salud Palmilla","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Corregimiento La Palmilla, vía Alcalá Valle","dir_fuente":"listado ESE","dir_poliza":"P.S. La Palmilla","lat":4.7254,"lon":-75.79414,"precision":"aprox","error_m":500,"confianza":"Alta","refs":[["node/1393085031","Vereda La Palmilla"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo de la vereda (place=hamlet) «La Palmilla» en OSM. Nota: el Excel dice que comparte matrícula con Puerto Caldas, pero esa sede queda a ~12 km; se ubicó en su propia vereda.","estado":"Aproximado (±500 m)","motivo":""},{"fila_excel":32,"sede":"Puesto de Salud Yarumal","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Vereda Yarumal","dir_fuente":"listado ESE","dir_poliza":"P.S. Yarumal","lat":4.714,"lon":-75.6707,"precision":"aprox","error_m":2000,"confianza":"Baja","refs":[["node/703494602","Yarumal"],["node/5965176587","Vereda Yarumal"]],"osm_name":"","geom":"","nota":"","metodo":"Dos nodos «Yarumal» de OSM en la vereda del sur-oriente (a ~200 m entre sí); la vereda se extiende hasta el «Plan de vivienda Yarumal» (~1,2 km). OSM tiene otra «Yarumal» al nororiente del municipio (4,90; -75,55): el Excel solo dice «Vereda Yarumal», por eso la confianza es baja.","estado":"Aproximado (±2000 m)","motivo":""},{"fila_excel":33,"sede":"Puesto de Salud Guayabal","tipo":"Puesto de salud","alcance":"Sí","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Vereda Guayabal","dir_fuente":"listado ESE","dir_poliza":"P.S. Guayabal","lat":4.7819,"lon":-75.6789,"precision":"aprox","error_m":2500,"confianza":"Baja","refs":[["way/426682350","Mundo Nuevo"]],"osm_name":"","geom":"","nota":"","metodo":"OSM no tiene la vereda Guayabal. El Excel indica que comparte matrícula y ficha catastral con Mundo Nuevo, así que se ubicó en esa misma zona, desplazada ~550 m solo para que los puntos no se superpongan. Ubicación de baja confianza.","estado":"Aproximado (±2500 m)","motivo":""},{"fila_excel":34,"sede":"Puesto de Salud Cañaveral","tipo":"Puesto de salud","alcance":"Sí","nivel":"Sin reporte","equiv":"— (sin equivalente; el Excel no reporta daño)","color":"gris","hex":"#8c919a","direccion":"Vda Cañaveral, vía Altagracia","dir_fuente":"póliza (el listado ESE indica s/d)","dir_poliza":"Vda Cañaveral, vía Altagracia","lat":4.77874,"lon":-75.71195,"precision":"aprox","error_m":700,"confianza":"Media","refs":[["node/703494653","Cañaveral"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo de la vereda (place=village) «Cañaveral» en OSM (el Excel dice «vía Altagracia»; sin dirección exacta).","estado":"Aproximado (±700 m)","motivo":""},{"fila_excel":35,"sede":"Puesto de Salud Pital de Combia","tipo":"Puesto de salud","alcance":"Sí","nivel":"Sin reporte","equiv":"— (sin equivalente; el Excel no reporta daño)","color":"gris","hex":"#8c919a","direccion":"Vda El Pital, vía El Mango, diagonal IE El Pital","dir_fuente":"póliza (el listado ESE indica s/d)","dir_poliza":"Vda El Pital, vía El Mango, diagonal IE El Pital","lat":4.85479,"lon":-75.73751,"precision":"aprox","error_m":800,"confianza":"Media","refs":[["node/703494739","Pital de Combia"]],"osm_name":"","geom":"","nota":"","metodo":"Nodo de la vereda (place=locality) «Pital de Combia» en OSM («diagonal IE El Pital», sin dirección exacta).","estado":"Aproximado (±800 m)","motivo":""},{"fila_excel":36,"sede":"Casa de Santa Teresita","tipo":"Casa","alcance":"Sí","nivel":"Sin reporte","equiv":"— (sin equivalente; el Excel no reporta daño)","color":"gris","hex":"#8c919a","direccion":"","dir_fuente":"sin dato","dir_poliza":"— no aparece —","lat":4.8198,"lon":-75.69156,"precision":"aprox","error_m":250,"confianza":"Alta","refs":[["relation/7762950","Santa Teresita (barrio)"]],"osm_name":"","geom":"","nota":"","metodo":"Sin dirección en el Excel; es una «edificación contigua al P.S. Santa Teresita». Se puso junto a ese puesto, desplazada ~45 m (solo para que los dos puntos no se tapen entre sí). Mismo error que el puesto vecino.","estado":"Aproximado (±250 m)","motivo":""},{"fila_excel":37,"sede":"Puesto de Salud El Remanso","tipo":"Puesto de salud","alcance":"No","nivel":"Leve","equiv":"Baja","color":"verde","hex":"#2e9e4f","direccion":"Centro Administrativo el Remanso, Vía el Chocho","dir_fuente":"listado ESE","dir_poliza":"— no aparece —","lat":4.787315,"lon":-75.67057,"precision":"aprox","error_m":700,"confianza":"Media","refs":[["relation/7754887","Remanso"],["way/506528834","Vía al Chocho"]],"osm_name":"","geom":"","nota":"","metodo":"Centro del límite del barrio/sector Remanso en OSM, junto a la «Vía al Chocho» (que pasa a ~600 m). El Excel dice «Centro Administrativo el Remanso, Vía el Chocho».","estado":"Aproximado (±700 m)","motivo":""},{"fila_excel":38,"sede":"Puesto de Salud Caimalito","tipo":"Puesto de salud","alcance":"No","nivel":"Moderado","equiv":"Media","color":"amarillo","hex":"#f2c500","direccion":"Centro poblado corregimiento de Caimalito, junto a estación de policía y frente a bomberos","dir_fuente":"listado ESE","dir_poliza":"— no aparece —","lat":4.88838,"lon":-75.88244,"precision":"aprox","error_m":200,"confianza":"Alta","refs":[["node/4548084845","Estación de Bomberos Voluntarios de Caimalito"],["node/703494626","Caimalito"]],"osm_name":"","geom":"","nota":"","metodo":"La sede está «junto a estación de policía y frente a bomberos»: se usó la Estación de Bomberos Voluntarios de Caimalito en OSM como referencia (la sede misma no está mapeada; queda enfrente, a unas decenas de metros).","estado":"Aproximado (±200 m)","motivo":""},{"fila_excel":39,"sede":"Casa del Abuelo","tipo":"Casa","alcance":"No","nivel":"Moderado","equiv":"Media","color":"amarillo","hex":"#f2c500","direccion":"Parque Industrial, Calle 63A # 4B-82, frente al CAI, Pereira","dir_fuente":"listado ESE","dir_poliza":"— no aparece —","lat":4.8235,"lon":-75.7318,"precision":"aprox","error_m":600,"confianza":"Media","refs":[["way/249120396","Calle 63 bis"],["relation/7811230","Parque Industrial"]],"osm_name":"","geom":"","nota":"","metodo":"Dirección Calle 63A #4B-82, Parque Industrial. En OSM no existe «Calle 63A»; se usó la «Calle 63 bis» dentro del polígono del Parque Industrial (el centro de ese polígono está a ~120 m). El «CAI» de referencia no está mapeado en OSM.","estado":"Aproximado (±600 m)","motivo":""}],"conteo":{"Leve":{"excel":22,"mapa":22,"exacta":5,"aprox":17},"Moderado":{"excel":5,"mapa":5,"exacta":1,"aprox":4},"Grave":{"excel":4,"mapa":4,"exacta":2,"aprox":2},"Sin reporte":{"excel":3,"mapa":3,"exacta":0,"aprox":3}},"niveles":{"Leve":{"equiv":"Baja","color":"verde","hex":"#2e9e4f","orden":1},"Moderado":{"equiv":"Media","color":"amarillo","hex":"#f2c500","orden":2},"Grave":{"equiv":"Alta","color":"rojo","hex":"#d62828","orden":3},"Sin reporte":{"equiv":"— (sin equivalente; el Excel no reporta daño)","color":"gris","hex":"#8c919a","orden":4}},"boundary":[[4.7736,-75.8631],[4.7726,-75.8695],[4.7757,-75.8699],[4.7763,-75.8713],[4.7723,-75.874],[4.7668,-75.873],[4.7689,-75.8777],[4.763,-75.8789],[4.7547,-75.889],[4.7588,-75.8976],[4.7524,-75.9055],[4.752,-75.9077],[4.7565,-75.9169],[4.7609,-75.913],[4.7635,-75.9149],[4.7598,-75.9215],[4.7605,-75.9234],[4.7636,-75.9244],[4.7682,-75.9199],[4.7703,-75.9213],[4.7701,-75.9252],[4.7666,-75.9271],[4.7673,-75.9303],[4.7753,-75.9272],[4.7805,-75.9284],[4.7783,-75.9216],[4.7813,-75.9224],[4.7839,-75.9285],[4.7879,-75.928],[4.7891,-75.9266],[4.7893,-75.92],[4.7942,-75.9177],[4.7978,-75.9213],[4.8023,-75.9223],[4.8,-75.9302],[4.803,-75.9322],[4.8075,-75.9316],[4.808,-75.9359],[4.81,-75.9347],[4.8115,-75.9277],[4.8171,-75.9193],[4.8135,-75.9158],[4.8149,-75.9119],[4.8176,-75.9105],[4.8275,-75.9101],[4.8386,-75.9026],[4.8477,-75.9062],[4.85,-75.9008],[4.8534,-75.9015],[4.8615,-75.9117],[4.8726,-75.9146],[4.8818,-75.9153],[4.8841,-75.9119],[4.8843,-75.9075],[4.8768,-75.9049],[4.8766,-75.9037],[4.8829,-75.8963],[4.8923,-75.8886],[4.8929,-75.8866],[4.8888,-75.8751],[4.8841,-75.8698],[4.8816,-75.8617],[4.8716,-75.8455],[4.8713,-75.8424],[4.8867,-75.8341],[4.9027,-75.8304],[4.9038,-75.8272],[4.9019,-75.8248],[4.9024,-75.8207],[4.903,-75.8181],[4.9062,-75.8155],[4.8997,-75.8075],[4.8956,-75.8063],[4.8935,-75.8072],[4.8896,-75.8054],[4.8894,-75.798],[4.8873,-75.7957],[4.8873,-75.7938],[4.8888,-75.7935],[4.8868,-75.7871],[4.8881,-75.7855],[4.8813,-75.7824],[4.8761,-75.7766],[4.8699,-75.773],[4.8714,-75.7698],[4.8716,-75.7646],[4.8786,-75.7575],[4.8815,-75.7503],[4.8843,-75.7484],[4.8907,-75.738],[4.8884,-75.7344],[4.8898,-75.7287],[4.8882,-75.7268],[4.8835,-75.725],[4.8855,-75.7192],[4.8849,-75.718],[4.881,-75.715],[4.8781,-75.7147],[4.8774,-75.7126],[4.8735,-75.711],[4.8733,-75.7092],[4.8612,-75.7106],[4.8474,-75.7155],[4.8383,-75.716],[4.8323,-75.7186],[4.8278,-75.7179],[4.8255,-75.7155],[4.8222,-75.7145],[4.8213,-75.7156],[4.8201,-75.7151],[4.8199,-75.7114],[4.8223,-75.7093],[4.8229,-75.7066],[4.8204,-75.6957],[4.821,-75.692],[4.8196,-75.6911],[4.8175,-75.6851],[4.8152,-75.6835],[4.8093,-75.6705],[4.802,-75.6624],[4.8025,-75.6605],[4.7994,-75.6571],[4.7974,-75.6519],[4.7914,-75.6459],[4.7889,-75.6491],[4.7869,-75.6494],[4.7826,-75.6453],[4.7783,-75.6432],[4.7771,-75.6375],[4.7728,-75.6325],[4.7735,-75.6293],[4.7658,-75.6248],[4.7596,-75.606],[4.7546,-75.6034],[4.7531,-75.6043],[4.7444,-75.6032],[4.7424,-75.5979],[4.7432,-75.5968],[4.7425,-75.5937],[4.7348,-75.5886],[4.7343,-75.5846],[4.7329,-75.5842],[4.733,-75.5817],[4.7292,-75.5729],[4.7257,-75.5703],[4.7241,-75.5656],[4.7179,-75.5613],[4.7145,-75.5546],[4.7101,-75.5503],[4.7064,-75.5379],[4.7008,-75.5356],[4.6989,-75.5315],[4.6985,-75.5232],[4.7087,-75.5138],[4.7056,-75.5068],[4.7048,-75.5002],[4.7125,-75.4876],[4.7163,-75.4861],[4.7171,-75.4795],[4.7204,-75.4732],[4.7201,-75.4691],[4.7276,-75.469],[4.7329,-75.4662],[4.7346,-75.4621],[4.7342,-75.4551],[4.738,-75.4506],[4.7499,-75.4473],[4.7624,-75.4363],[4.7765,-75.4173],[4.7798,-75.4144],[4.7894,-75.412],[4.7934,-75.4079],[4.7926,-75.4045],[4.7869,-75.3987],[4.7866,-75.3954],[4.7888,-75.3922],[4.7962,-75.3868],[4.8025,-75.3755],[4.794,-75.3775],[4.7889,-75.3763],[4.7843,-75.3769],[4.7765,-75.3801],[4.7715,-75.3798],[4.7696,-75.378],[4.7677,-75.3794],[4.7614,-75.3798],[4.7589,-75.3832],[4.7523,-75.3863],[4.7487,-75.3859],[4.7465,-75.3883],[4.7452,-75.3863],[4.7402,-75.3839],[4.736,-75.3838],[4.7299,-75.3777],[4.7252,-75.3836],[4.7188,-75.388],[4.7157,-75.3886],[4.7165,-75.3946],[4.7113,-75.4014],[4.7091,-75.4083],[4.7027,-75.4091],[4.6983,-75.4127],[4.6964,-75.4214],[4.6941,-75.4249],[4.6976,-75.4322],[4.6971,-75.4368],[4.6956,-75.4386],[4.6852,-75.4399],[4.6816,-75.4422],[4.6799,-75.4483],[4.681,-75.4567],[4.68,-75.4658],[4.6742,-75.4722],[4.6675,-75.4759],[4.6647,-75.4798],[4.6646,-75.4837],[4.6696,-75.4951],[4.6732,-75.4991],[4.6824,-75.5044],[4.6944,-75.5208],[4.6933,-75.5258],[4.6946,-75.5329],[4.6973,-75.5369],[4.7025,-75.5521],[4.6995,-75.5604],[4.7017,-75.5656],[4.6999,-75.5707],[4.7005,-75.5781],[4.6995,-75.582],[4.7002,-75.5856],[4.7053,-75.5869],[4.7031,-75.594],[4.7072,-75.5994],[4.7072,-75.6015],[4.7092,-75.6027],[4.7079,-75.6038],[4.7095,-75.6066],[4.7065,-75.608],[4.706,-75.6108],[4.7035,-75.6117],[4.7011,-75.6147],[4.7011,-75.6215],[4.7045,-75.6258],[4.7033,-75.6298],[4.7044,-75.6324],[4.7036,-75.6337],[4.7048,-75.6349],[4.7033,-75.6386],[4.7064,-75.6398],[4.7056,-75.6414],[4.7097,-75.6466],[4.7078,-75.6472],[4.7058,-75.6537],[4.7003,-75.6566],[4.6996,-75.6599],[4.7015,-75.663],[4.7021,-75.6675],[4.7051,-75.6701],[4.7067,-75.6699],[4.7083,-75.676],[4.7105,-75.6772],[4.7147,-75.6834],[4.7141,-75.6881],[4.7185,-75.6913],[4.718,-75.6928],[4.7195,-75.6927],[4.7186,-75.6962],[4.7211,-75.6977],[4.72,-75.7002],[4.7214,-75.7029],[4.718,-75.7055],[4.7174,-75.7084],[4.7158,-75.7087],[4.7167,-75.7118],[4.7131,-75.714],[4.7126,-75.7198],[4.7105,-75.7207],[4.7118,-75.7223],[4.7111,-75.7254],[4.7093,-75.726],[4.7097,-75.7288],[4.7077,-75.7299],[4.7103,-75.7309],[4.7081,-75.7312],[4.708,-75.733],[4.7098,-75.7335],[4.7077,-75.7341],[4.7103,-75.7352],[4.7095,-75.7386],[4.7108,-75.7389],[4.7105,-75.7407],[4.7116,-75.7413],[4.7104,-75.7438],[4.7119,-75.7451],[4.7115,-75.7472],[4.713,-75.7471],[4.7114,-75.7499],[4.7124,-75.7509],[4.7114,-75.7504],[4.71,-75.7525],[4.7115,-75.7536],[4.71,-75.7543],[4.711,-75.7555],[4.7104,-75.7581],[4.7121,-75.7582],[4.7112,-75.7609],[4.7157,-75.764],[4.7144,-75.7654],[4.7151,-75.7699],[4.7141,-75.7705],[4.7166,-75.771],[4.717,-75.7726],[4.7189,-75.7714],[4.718,-75.7728],[4.7201,-75.7736],[4.7187,-75.7745],[4.7215,-75.7752],[4.7207,-75.7765],[4.722,-75.7767],[4.7211,-75.7789],[4.722,-75.7795],[4.7193,-75.7806],[4.7192,-75.783],[4.7202,-75.7826],[4.7212,-75.785],[4.7225,-75.7853],[4.7186,-75.786],[4.719,-75.7876],[4.7168,-75.7894],[4.7181,-75.7904],[4.7168,-75.7905],[4.7168,-75.7918],[4.7183,-75.7916],[4.7196,-75.794],[4.7185,-75.796],[4.7196,-75.796],[4.7192,-75.7971],[4.7205,-75.7965],[4.721,-75.8003],[4.7236,-75.7989],[4.7235,-75.8013],[4.725,-75.8018],[4.7256,-75.8005],[4.7273,-75.8013],[4.7269,-75.8027],[4.7283,-75.8025],[4.7283,-75.8063],[4.7269,-75.8067],[4.7275,-75.8083],[4.7291,-75.8084],[4.7275,-75.8118],[4.7295,-75.8115],[4.7281,-75.8122],[4.7296,-75.8131],[4.7288,-75.8146],[4.7301,-75.8143],[4.7327,-75.8189],[4.7345,-75.8189],[4.7333,-75.8202],[4.7346,-75.8218],[4.7339,-75.8229],[4.7381,-75.8316],[4.7363,-75.8329],[4.7365,-75.8343],[4.7354,-75.8339],[4.7354,-75.8356],[4.7341,-75.8356],[4.7335,-75.838],[4.729,-75.8397],[4.7289,-75.8433],[4.7276,-75.8442],[4.7341,-75.8511],[4.7311,-75.8518],[4.7277,-75.8563],[4.7328,-75.8557],[4.739,-75.8484],[4.7489,-75.8465],[4.7561,-75.8468],[4.7592,-75.8447],[4.765,-75.8451],[4.7688,-75.8473],[4.771,-75.8464],[4.774,-75.8482],[4.7764,-75.848],[4.7783,-75.85],[4.7781,-75.8557],[4.7743,-75.8602],[4.7736,-75.8631]]};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n.toFixed(6);
+const ORDEN = ['Grave','Moderado','Leve','Sin reporte'];           // de mayor a menor afectación en la leyenda
+const rows = D.rows;                                               // todas las sedes (exactas primero)
+const exactas = rows.filter(r => r.precision === 'exacta');
+const aprox = rows.filter(r => r.precision === 'aprox');
+const unmapped = rows.filter(r => r.lat === null);
+const BORDE = {'Grave':'#a31d1d', 'Moderado':'#a88a00', 'Leve':'#1d7a39', 'Sin reporte':'#5d626b'};   // borde del círculo de incertidumbre
+const MORADO = '#7b2cbf', MORADO_BORDE = '#5a189a';                                                      // sede marcada «Ya tuvo reporte»
+
+/* Marcas «Ya tuvo reporte»: se guardan en el navegador (localStorage); si no está disponible, funcionan igual durante la sesión */
+const LS_KEY = 'hospitalesPereira.yaTuvoReporte.v1';
+const reportadas = new Set();
+try { (JSON.parse(localStorage.getItem(LS_KEY) || '[]')).forEach(n => { if (rows.some(r => r.sede === n)) reportadas.add(n); }); } catch (e) {}
+const guardarMarcas = () => { try { localStorage.setItem(LS_KEY, JSON.stringify([...reportadas])); } catch (e) {} };
+const colorDe = r => reportadas.has(r.sede) ? MORADO : r.hex;
+
+/* ---------- Resumen ---------- */
+document.getElementById('k-total').textContent = rows.length;
+document.getElementById('k-ok').textContent = exactas.length;
+document.getElementById('k-ap').textContent = aprox.length;
+
+/* ---------- Mapa ---------- */
+const map = L.map('map', {minZoom: 8, maxZoom: 19});
+const osm  = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright">colaboradores de OpenStreetMap</a>'});
+const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Tiles © Esri — Esri, HERE, Garmin, © colaboradores de OpenStreetMap'});
+const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom:17, subdomains:'abc', attribution:'© OpenStreetMap, © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'});
+// OpenStreetMap bloquea los mosaicos cuando la página se abre como archivo (file://, doble clic) porque el navegador
+// no envía Referer. En ese caso se arranca con Esri; con un servidor local (Live Server, http://) se usa OpenStreetMap.
+const comoArchivo = location.protocol === 'file:';
+(comoArchivo ? esri : osm).addTo(map);
+if (comoArchivo) document.getElementById('aviso').hidden = false;
+L.control.layers({'OpenStreetMap (vías y referencias)':osm, 'Esri calles':esri, 'Relieve (OpenTopoMap)':topo}, null, {position:'topright', collapsed:true}).addTo(map);
+
+/* Límite municipal */
+const limite = L.polygon(D.boundary, {color:'#2b3f55', weight:2.5, dashArray:'9 6', fillColor:'#7f8fa3', fillOpacity:.07, interactive:false}).addTo(map);
+
+/* Escala gráfica (se añade antes que la leyenda para que quede debajo de ella) */
+L.control.scale({metric:true, imperial:false, position:'bottomleft', maxWidth:160}).addTo(map);
+
+/* ---------- Marcadores ----------
+   Color = nivel de afectación del Excel; solo cambia a morado cuando la sede se marca «Ya tuvo reporte».
+   Borde continuo = ubicación exacta · borde punteado + círculo de incertidumbre = ubicación aproximada. */
+const refLinks = r => (r.refs || []).map(x => `<a href="https://www.openstreetmap.org/${esc(x[0])}" target="_blank" rel="noopener">${esc(x[1])}</a>`).join(' · ');
+function popupHtml(r){
+  const ap = r.precision === 'aprox';
+  const marcada = reportadas.has(r.sede);
+  const ubic = ap ? `<span class="ap">Aproximada, ±${r.error_m} m</span> (confianza ${esc(r.confianza.toLowerCase())})` : '<span class="ok">Exacta</span> (punto de OpenStreetMap)';
+  return `<div class="pop"><h4>${esc(r.sede)}</h4>
+    <label class="repbox"><input type="checkbox" class="rep" data-f="${r.fila_excel}"${marcada ? ' checked' : ''}><span>Ya tuvo reporte<small>Al marcarla, el punto se vuelve morado.</small></span></label>
+    ${ap ? `<p class="warn">Ubicación aproximada: la sede debería estar dentro del círculo punteado (radio ${r.error_m} m).</p>` : ''}
+    <dl>
+    <dt>Nivel de afectación</dt><dd><span class="chip"><span class="dot" style="background:${r.hex}"></span><b>${esc(r.nivel)}</b></span> <span style="color:#5a6472">(equivale a ${esc(r.equiv)})</span></dd>
+    <dt>Tipo</dt><dd>${esc(r.tipo)}</dd>
+    <dt>Dirección</dt><dd>${r.direccion ? esc(r.direccion) : 'sin dato'}</dd>
+    <dt>Latitud</dt><dd>${fmt(r.lat)}${ap ? ' <small>(aprox.)</small>' : ''}</dd>
+    <dt>Longitud</dt><dd>${fmt(r.lon)}${ap ? ' <small>(aprox.)</small>' : ''}</dd>
+    <dt>Ubicación</dt><dd>${ubic}</dd></dl>
+    <p class="note">${ap ? `<b>Cómo se ubicó:</b> ${esc(r.metodo)}` : `<b>En OSM:</b> ${esc(r.osm_name)} (${esc(r.geom)}).${r.nota ? '<br>' + esc(r.nota) : ''}`}
+    <br><b>Referencias OSM:</b> ${refLinks(r)}</p></div>`;
+}
+const state = {niveles:{}, exacta:true, aprox:true, halos:true, rep:true};
+ORDEN.forEach(n => state.niveles[n] = true);
+const items = [], itemDe = new Map();                               // {r, m, halo}; itemDe: fila del Excel -> item
+// Se dibujan primero los niveles menores para que los graves queden encima
+[...ORDEN].reverse().forEach(nivel => {
+  rows.filter(r => r.nivel === nivel).forEach(r => {
+    const ap = r.precision === 'aprox';
+    const m = L.circleMarker([r.lat, r.lon], ap
+        ? {radius:11, color:'#111', weight:2.5, dashArray:'3 3', fillColor:r.hex, fillOpacity:.82}
+        : {radius:11, color:'#111', weight:2, fillColor:r.hex, fillOpacity:.95})
+      .bindPopup(() => popupHtml(r), {maxWidth:350})
+      .bindTooltip(esc(r.sede), {direction:'top', offset:[0,-10], className:'lbl'});
+    m.on('popupopen', e => { const cb = e.popup.getElement().querySelector('input.rep'); if (cb) cb.addEventListener('change', () => setReporte(r, cb.checked)); });
+    const halo = ap ? L.circle([r.lat, r.lon], {radius:r.error_m, color:BORDE[r.nivel], weight:1.5, dashArray:'5 5', fillColor:r.hex, fillOpacity:(r.error_m > 1500 ? .05 : .10), interactive:false}) : null;
+    const it = {r, m, halo}; items.push(it); itemDe.set(r.fila_excel, it); pintar(it);
+  });
+});
+const visible = it => state.niveles[it.r.nivel] && (it.r.precision === 'aprox' ? state.aprox : state.exacta) && (reportadas.has(it.r.sede) ? state.rep : true);
+function pintar(it){                                                // color del punto (y de su círculo de error) según la marca de reporte
+  const rep = reportadas.has(it.r.sede);
+  it.m.setStyle({fillColor: colorDe(it.r)});
+  if (it.halo) it.halo.setStyle({fillColor: colorDe(it.r), color: rep ? MORADO_BORDE : BORDE[it.r.nivel]});
+}
+function actualizarConteos(){
+  ORDEN.forEach(n => {
+    const el = document.querySelector(`.legend [data-cnt="${n}"]`); if (!el) return;
+    const total = rows.filter(r => r.nivel === n).length, sin = rows.filter(r => r.nivel === n && !reportadas.has(r.sede)).length;
+    el.textContent = sin; el.title = `${sin} sin marca de reporte, de ${total} en el Excel`;
+  });
+  const lr = document.getElementById('cnt-rep'); if (lr) lr.textContent = reportadas.size;
+  document.getElementById('k-rep').textContent = reportadas.size;
+  document.querySelectorAll('#t-control tbody tr').forEach(tr => tr.classList.toggle('conreporte', reportadas.has(rows[tr.dataset.i].sede)));
+}
+function setReporte(r, val){
+  val ? reportadas.add(r.sede) : reportadas.delete(r.sede);
+  guardarMarcas();
+  pintar(itemDe.get(r.fila_excel));
+  document.querySelectorAll(`input.rep[data-f="${r.fila_excel}"]`).forEach(i => { i.checked = val; });
+  actualizarConteos();
+  if (!state.rep) refresh();                                         // si las «con reporte» están ocultas en la leyenda, desaparece el punto
+}
+function refresh(){
+  items.forEach(it => { map.removeLayer(it.m); if (it.halo) map.removeLayer(it.halo); });
+  items.forEach(it => { if (it.halo && state.halos && visible(it)) it.halo.addTo(map); });   // los círculos van debajo de los puntos
+  items.forEach(it => { if (visible(it)) it.m.addTo(map); });
+  if (verNombres) layoutLabels();
+}
+const radioPorZoom = z => z <= 10 ? 6 : z === 11 ? 8 : z === 12 ? 9 : 11;
+
+/* Nombre de cada sede DEBAJO de su punto. La letra crece con el zoom (10 → 13 px) y las etiquetas no llevan caja;
+   en cada zoom solo se dibujan las que caben sin taparse entre sí ni tapar otros puntos (primero las más graves).
+   Si no cabe debajo, se intenta a la derecha, a la izquierda o arriba. Al acercar el mapa aparecen todas.
+   En la etiqueta, «Puesto de Salud» se abrevia «P.S.»; el nombre completo está en el popup y al pasar el cursor. */
+let verNombres = false;
+const corto = r => r.sede.replace(/^Puesto de Salud /, 'P.S. ');
+const fuentePorZoom = z => z <= 10 ? 10 : z === 11 ? 11 : z === 12 ? 11.5 : z === 13 ? 12 : z === 14 ? 12.5 : 13;
+const _cv = document.createElement('canvas').getContext('2d');
+function layoutLabels(){
+  const z = map.getZoom(), fs = fuentePorZoom(z);
+  map.getContainer().style.setProperty('--lbl-size', fs + 'px');
+  items.forEach(it => it.m.unbindTooltip());
+  const hover = it => it.m.bindTooltip(esc(it.r.sede), {direction:'top', offset:[0,-10], className:'lbl'});
+  if (!verNombres) { items.forEach(hover); return; }
+  _cv.font = `600 ${fs}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`;
+  const R = radioPorZoom(z), placed = [];
+  const hit = (a, b) => !(a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
+  const cr = map.getContainer().getBoundingClientRect();
+  map.getContainer().querySelectorAll('.leaflet-control').forEach(c => { const b = c.getBoundingClientRect();    // leyenda, zoom, capas, norte…: no se rotula debajo de ellos
+    if (b.width && b.height) placed.push([b.left - cr.left - 2, b.top - cr.top - 2, b.right - cr.left + 2, b.bottom - cr.top + 2]); });
+  items.filter(visible).forEach(it => { const p = map.latLngToContainerPoint([it.r.lat, it.r.lon]); placed.push([p.x-R-2, p.y-R-2, p.x+R+2, p.y+R+2]); });
+  [...items].reverse().forEach(it => {                                  // graves primero
+    const txt = corto(it.r); let dir = null;
+    if (visible(it)) {
+      const p = map.latLngToContainerPoint([it.r.lat, it.r.lon]), w = _cv.measureText(txt).width + 6, h = fs * 1.15 + 3, g = R + 4;
+      const cand = {bottom:[p.x-w/2, p.y+g, p.x+w/2, p.y+g+h], right:[p.x+g+2, p.y-h/2, p.x+g+2+w, p.y+h/2],
+                    left:[p.x-g-2-w, p.y-h/2, p.x-g-2, p.y+h/2], top:[p.x-w/2, p.y-g-h, p.x+w/2, p.y-g]};
+      for (const d of ['bottom','right','left','top']) if (!placed.some(b => hit(cand[d], b))) { dir = d; placed.push(cand[d]); break; }
+    }
+    const off = {bottom:[0,R+1], top:[0,-(R+1)], right:[R+3,0], left:[-(R+3),0]};
+    if (dir) it.m.bindTooltip(esc(txt), {direction:dir, offset:off[dir], className:'lbl2', permanent:true});
+    else hover(it);
+  });
+}
+refresh();
+map.on('resize', () => { if (verNombres) layoutLabels(); });
+map.on('zoomend', () => { items.forEach(it => it.m.setRadius(radioPorZoom(map.getZoom()))); if (verNombres) layoutLabels(); });
+
+const ptsBounds = L.latLngBounds(rows.map(r => [r.lat, r.lon]));
+function verSedes(){                                                  // en pantallas anchas deja libre la franja de la leyenda (izquierda)
+  const ancho = map.getSize().x >= 900;
+  map.fitBounds(ptsBounds.pad(0.04), {paddingTopLeft: ancho ? [310, 20] : [16, 16], paddingBottomRight: [16, 16], maxZoom:13});
+}
+function verMunicipio(){ map.fitBounds(limite.getBounds().pad(0.03)); }
+verSedes();
+verNombres = true; layoutLabels();                                      // nombres visibles desde el inicio (casilla «Mostrar nombres»)
+actualizarConteos();
+
+/* Leyenda con casillas para activar/desactivar categorías */
+const Legend = L.Control.extend({
+  options:{position:'bottomleft'},
+  onAdd(){
+    const el = L.DomUtil.create('div', 'ctl legend');
+    L.DomEvent.disableClickPropagation(el);
+    const chk = ORDEN.map(n => {
+      const c = D.conteo[n], hex = D.niveles[n].hex;
+      const label = n === 'Sin reporte' ? 'Sin reporte' : `${n} · ${D.niveles[n].equiv}`;
+      return `<label><input type="checkbox" data-n="${esc(n)}" checked>
+        <span class="dot" style="background:${hex}"></span><span>${esc(label)}</span>
+        <span class="cnt" data-cnt="${esc(n)}" title="${c.exacta} exactas + ${c.aprox} aproximadas">${c.mapa}</span></label>`;
+    }).join('');
+    el.innerHTML = `<h3 role="button" tabindex="0" aria-expanded="true"><span>Nivel de afectación (Excel)</span><span class="car">▼</span></h3>
+      <div class="body">${chk}
+      <label><input type="checkbox" data-t="rep" checked><span class="sw rep"></span><span>Ya tuvo reporte (morado)</span><span class="cnt" id="cnt-rep">0</span></label>
+      <hr>
+      <label><input type="checkbox" data-t="exacta" checked><span class="sw"></span><span>Ubicación exacta</span><span class="cnt">${exactas.length}</span></label>
+      <label><input type="checkbox" data-t="aprox" checked><span class="sw aprox"></span><span>Ubicación aproximada</span><span class="cnt">${aprox.length}</span></label>
+      <label><input type="checkbox" data-t="halos" checked><span class="sw ring"></span><span>Radio de error (aprox.)</span></label>
+      <small>Color = nivel del Excel. Morado = marcada «Ya tuvo reporte» (en el popup o en la tabla). Borde punteado = ubicación aproximada (la sede está dentro del círculo).</small>
+      <hr><label><input type="checkbox" id="lbl" checked> <span>Mostrar nombres</span></label>
+      <small>P.S. = Puesto de Salud. Al acercar el mapa aparecen todos los nombres.</small></div>`;
+    const h3 = el.querySelector('h3');
+    const toggle = () => { const c = el.classList.toggle('collapsed'); h3.setAttribute('aria-expanded', String(!c)); if (verNombres) layoutLabels(); };
+    h3.addEventListener('click', toggle);
+    h3.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    if (window.innerWidth < 640) { el.classList.add('collapsed'); h3.setAttribute('aria-expanded', 'false'); }
+    el.addEventListener('change', e => {
+      const t = e.target;
+      if (t.dataset.n) { state.niveles[t.dataset.n] = t.checked; refresh(); }
+      if (t.dataset.t) { state[t.dataset.t] = t.checked; refresh(); }
+      if (t.id === 'lbl') { verNombres = t.checked; layoutLabels(); }
+    });
+    return el;
+  }
+});
+map.addControl(new Legend());
+
+/* Indicador de norte */
+const North = L.Control.extend({
+  options:{position:'topright'},
+  onAdd(){
+    const el = L.DomUtil.create('div', 'ctl north');
+    el.setAttribute('aria-label', 'Norte hacia arriba');
+    el.innerHTML = `<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true">
+      <polygon points="17,2 27,36 17,29 7,36" fill="#1c2430"/><polygon points="17,2 17,29 7,36" fill="#fff" stroke="#1c2430" stroke-width="1.5"/>
+      </svg><b>N</b>`;
+    return el;
+  }
+});
+map.addControl(new North());
+
+/* Botones de vista */
+const Views = L.Control.extend({
+  options:{position:'topleft'},
+  onAdd(){
+    const el = L.DomUtil.create('div', 'ctl viewbtns');
+    L.DomEvent.disableClickPropagation(el);
+    el.innerHTML = `<button type="button" data-v="s">Ver sedes</button><button type="button" data-v="m">Ver municipio</button>`;
+    el.addEventListener('click', e => { const v = e.target.dataset.v; if (v === 's') verSedes(); if (v === 'm') verMunicipio(); });
+    return el;
+  }
+});
+map.addControl(new Views());
+
+/* ---------- Tablas ---------- */
+const chip = r => `<span class="chip"><span class="dot${r.precision === 'aprox' ? ' aprox' : ''}" style="background:${r.hex}"></span>${esc(r.nivel)}</span>`;
+const dirTxt = r => r.direccion ? esc(r.direccion) + (r.dir_fuente.startsWith('póliza') ? ' <small>(según la póliza)</small>' : '') : '<em>sin dato</em>';
+const confTxt = r => `<span class="conf">confianza ${esc(r.confianza.toLowerCase())}</span>`;
+function mostrarSede(r){
+  const it = items.find(x => x.r === r);
+  let cambio = false;
+  if (!state.niveles[r.nivel]) { state.niveles[r.nivel] = true; cambio = true; }
+  const t = r.precision === 'aprox' ? 'aprox' : 'exacta';
+  if (!state[t]) { state[t] = true; cambio = true; }
+  if (reportadas.has(r.sede) && !state.rep) { state.rep = true; cambio = true; }
+  if (cambio) {
+    document.querySelectorAll('.legend input[data-n]').forEach(i => i.checked = state.niveles[i.dataset.n]);
+    document.querySelectorAll('.legend input[data-t="exacta"],.legend input[data-t="aprox"],.legend input[data-t="rep"]').forEach(i => i.checked = state[i.dataset.t]);
+    refresh();
+  }
+  const z = r.precision === 'exacta' || r.error_m <= 400 ? 16 : r.error_m <= 1000 ? 15 : r.error_m <= 2000 ? 14 : 13;
+  map.setView([r.lat, r.lon], z); it.m.openPopup();
+  document.getElementById('map').scrollIntoView({behavior:'smooth', block:'center'});
+}
+const tb = document.querySelector('#t-control tbody');
+rows.forEach((r, i) => {
+  const tr = document.createElement('tr');
+  tr.dataset.i = i;
+  const ap = r.precision === 'aprox';
+  tr.innerHTML = `<td>${esc(r.sede)}</td><td>${chip(r)}</td><td>${dirTxt(r)}</td>
+    <td class="num">${fmt(r.lat)}</td><td class="num">${fmt(r.lon)}</td>
+    <td>${ap ? `<span class="ap">Aproximado, ±${r.error_m} m</span> ${confTxt(r)}` : '<span class="ok">Georreferenciado (exacto)</span>'}
+      <button class="btn" type="button">Ver en mapa</button></td>
+    <td class="rep"><label><input type="checkbox" class="rep" data-f="${r.fila_excel}"${reportadas.has(r.sede) ? ' checked' : ''}> Ya tuvo reporte</label></td>`;
+  tr.querySelector('button').addEventListener('click', () => mostrarSede(r));
+  tr.querySelector('input.rep').addEventListener('change', e => setReporte(r, e.target.checked));
+  tb.appendChild(tr);
+});
+const ta = document.querySelector('#t-aprox tbody');
+aprox.forEach(r => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${esc(r.sede)}</td><td>${chip(r)}</td><td>${dirTxt(r)}</td>
+    <td class="num">±${r.error_m} m<br>${confTxt(r)}</td>
+    <td>${esc(r.metodo)}<br><small>OSM: ${refLinks(r)}</small></td>`;
+  ta.appendChild(tr);
+});
+if (unmapped.length) {
+  document.getElementById('sec-err').hidden = false;
+  const te = document.querySelector('#t-err tbody');
+  unmapped.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(r.sede)}</td><td>${chip(r)}</td><td>${dirTxt(r)}</td><td>${esc(r.motivo)}</td>`;
+    te.appendChild(tr);
+  });
+}
+
+actualizarConteos();
+document.getElementById('clr').addEventListener('click', () => {
+  if (!reportadas.size) return;
+  const todas = rows.filter(r => reportadas.has(r.sede));
+  reportadas.clear(); guardarMarcas();
+  todas.forEach(r => { pintar(itemDe.get(r.fila_excel)); document.querySelectorAll(`input.rep[data-f="${r.fila_excel}"]`).forEach(i => { i.checked = false; }); });
+  actualizarConteos();
+});
+
+/* ---------- Descarga CSV ---------- */
+document.getElementById('dl').addEventListener('click', () => {
+  const head = ['Hospital','Tipo','Nivel de afectación','Equivalencia','Dirección','Latitud','Longitud','Estado de georreferenciación','Error estimado (m)','Confianza','Cómo se ubicó','Referencias OSM','Ya tuvo reporte (marca del usuario)'];
+  const q = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
+  const lines = [head.map(q).join(',')].concat(rows.map(r => [r.sede, r.tipo, r.nivel, r.equiv, r.direccion,
+    fmt(r.lat), fmt(r.lon), r.estado, r.precision === 'aprox' ? r.error_m : '', r.confianza, r.metodo,
+    (r.refs || []).map(x => 'https://www.openstreetmap.org/' + x[0]).join(' | '), reportadas.has(r.sede) ? 'Sí' : 'No'].map(q).join(',')));
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tabla_control_hospitales_pereira.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body>
+</html>
