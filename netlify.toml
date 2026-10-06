@@ -1,0 +1,7 @@
+# La página es un solo index.html (sin compilación). Netlify solo instala @netlify/blobs para la función de las marcas.
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
