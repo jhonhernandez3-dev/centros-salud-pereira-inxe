@@ -115,6 +115,15 @@
   .pop .repbox{display:flex; align-items:center; gap:8px; margin:0 0 8px; padding:6px 8px; border:1px solid #cdb8ee; border-radius:7px; background:#f4ecff; color:#3b1070; cursor:pointer; font-weight:600}
   .pop .repbox input{width:17px; height:17px; accent-color:#7b2cbf; flex:none; margin:0; cursor:pointer}
   .pop .repbox small{display:block; font-weight:400; color:#5b3a8a; font-size:11.5px}
+  .navbtn{display:inline-block; font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; padding:5px 10px; border-radius:7px; border:1px solid; text-decoration:none; white-space:nowrap}
+  .navbtn.waze{color:#075f86; background:#e4f5fc; border-color:#86cdea}
+  .navbtn.gmaps{color:#1a4fb4; background:#e8f0ff; border-color:#9ab9f2}
+  .navbtn:hover{filter:brightness(.95); text-decoration:underline}
+  td.nav{white-space:nowrap} td.nav .navbtn+.navbtn{margin-left:5px} td.nav small{display:block; margin-top:4px}
+  .pop .comollegar{margin:8px 0 0; display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+  .pop .comollegar b{font-size:12px; color:#5a6472; margin-right:2px}
+  .pop .comollegar small{flex-basis:100%; color:#5a6472; font-size:11.5px}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) td .navbtn.waze{color:#8bd6f3; background:rgba(51,170,220,.16); border-color:rgba(139,214,243,.4)} :root:not([data-theme="light"]) td .navbtn.gmaps{color:#a9c6ff; background:rgba(70,120,230,.18); border-color:rgba(169,198,255,.4)} }
   td.rep{white-space:nowrap}
   td.rep label{display:inline-flex; align-items:center; gap:7px; cursor:pointer}
   td.rep input{width:17px; height:17px; accent-color:#7b2cbf; cursor:pointer}
@@ -234,7 +243,7 @@
   <div class="toolbar"><span class="sync-estado" id="sync-estado-t" data-s="sync" role="status">Sincronizando marcas…</span><button class="btn" id="sync-ahora" type="button">Actualizar marcas</button><button class="btn" id="clr" type="button">Quitar todas las marcas de reporte</button><button class="btn" id="dl" type="button">Descargar tabla (CSV)</button></div>
   <div class="tablewrap">
     <table id="t-control">
-      <thead><tr><th>Hospital</th><th>Nivel de afectación</th><th>Dirección</th><th>Latitud</th><th>Longitud</th><th>Estado de georreferenciación</th><th>¿Ya tuvo reporte?</th></tr></thead>
+      <thead><tr><th>Hospital</th><th>Nivel de afectación</th><th>Dirección</th><th>Cómo llegar</th><th>Latitud</th><th>Longitud</th><th>Estado de georreferenciación</th><th>¿Ya tuvo reporte?</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -359,6 +368,12 @@ L.control.scale({metric:true, imperial:false, position:'bottomleft', maxWidth:16
    Color = nivel de afectación del Excel; solo cambia a morado cuando la sede se marca «Ya tuvo reporte».
    Borde continuo = ubicación exacta · borde punteado + círculo de incertidumbre = ubicación aproximada. */
 const refLinks = r => (r.refs || []).map(x => `<a href="https://www.openstreetmap.org/${esc(x[0])}" target="_blank" rel="noopener">${esc(x[1])}</a>`).join(' · ');
+/* Enlaces «Cómo llegar»: abren la aplicación Waze o Google Maps (si está instalada; si no, su versión web) con destino al punto de la sede.
+   Se usan las coordenadas del mapa (no el texto de la dirección) porque varias direcciones del Excel son descriptivas (veredas, corregimientos). */
+const coord = r => `${r.lat.toFixed(6)},${r.lon.toFixed(6)}`;
+const linkWaze = r => `https://waze.com/ul?ll=${coord(r)}&navigate=yes&zoom=17`;
+const linkGoogle = r => `https://www.google.com/maps/dir/?api=1&destination=${coord(r)}&travelmode=driving`;
+const navBtns = r => `<a class="navbtn waze" href="${linkWaze(r)}" target="_blank" rel="noopener" title="Abrir en Waze: ruta hasta ${esc(r.sede)}">Waze</a><a class="navbtn gmaps" href="${linkGoogle(r)}" target="_blank" rel="noopener" title="Abrir en Google Maps: ruta hasta ${esc(r.sede)}">Google Maps</a>`;
 function popupHtml(r){
   const ap = r.precision === 'aprox';
   const marcada = reportadas.has(r.sede);
@@ -373,6 +388,7 @@ function popupHtml(r){
     <dt>Latitud</dt><dd>${fmt(r.lat)}${ap ? ' <small>(aprox.)</small>' : ''}</dd>
     <dt>Longitud</dt><dd>${fmt(r.lon)}${ap ? ' <small>(aprox.)</small>' : ''}</dd>
     <dt>Ubicación</dt><dd>${ubic}</dd></dl>
+    <div class="comollegar"><b>Cómo llegar:</b>${navBtns(r)}${ap ? `<small>Lleva al punto aproximado del mapa (±${r.error_m} m).</small>` : ''}</div>
     <p class="note">${ap ? `<b>Cómo se ubicó:</b> ${esc(r.metodo)}` : `<b>En OSM:</b> ${esc(r.osm_name)} (${esc(r.geom)}).${r.nota ? '<br>' + esc(r.nota) : ''}`}
     <br><b>Referencias OSM:</b> ${refLinks(r)}</p></div>`;
 }
@@ -724,6 +740,7 @@ rows.forEach((r, i) => {
   tr.dataset.i = i;
   const ap = r.precision === 'aprox';
   tr.innerHTML = `<td>${esc(r.sede)}</td><td>${chip(r)}</td><td>${dirTxt(r)}</td>
+    <td class="nav">${navBtns(r)}${ap ? '<small>punto aprox.</small>' : ''}</td>
     <td class="num">${fmt(r.lat)}</td><td class="num">${fmt(r.lon)}</td>
     <td>${ap ? `<span class="ap">Aproximado, ±${r.error_m} m</span> ${confTxt(r)}` : '<span class="ok">Georreferenciado (exacto)</span>'}
       <button class="btn" type="button">Ver en mapa</button></td>
@@ -850,11 +867,11 @@ sincronizar();
 
 /* ---------- Descarga CSV ---------- */
 document.getElementById('dl').addEventListener('click', () => {
-  const head = ['Hospital','Tipo','Nivel de afectación','Equivalencia','Dirección','Latitud','Longitud','Estado de georreferenciación','Error estimado (m)','Confianza','Cómo se ubicó','Referencias OSM','Ya tuvo reporte (marca del usuario)'];
+  const head = ['Hospital','Tipo','Nivel de afectación','Equivalencia','Dirección','Latitud','Longitud','Estado de georreferenciación','Error estimado (m)','Confianza','Cómo se ubicó','Referencias OSM','Ya tuvo reporte (marca del usuario)','Enlace Waze','Enlace Google Maps'];
   const q = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
   const lines = [head.map(q).join(',')].concat(rows.map(r => [r.sede, r.tipo, r.nivel, r.equiv, r.direccion,
     fmt(r.lat), fmt(r.lon), r.estado, r.precision === 'aprox' ? r.error_m : '', r.confianza, r.metodo,
-    (r.refs || []).map(x => 'https://www.openstreetmap.org/' + x[0]).join(' | '), reportadas.has(r.sede) ? 'Sí' : 'No'].map(q).join(',')));
+    (r.refs || []).map(x => 'https://www.openstreetmap.org/' + x[0]).join(' | '), reportadas.has(r.sede) ? 'Sí' : 'No', linkWaze(r), linkGoogle(r)].map(q).join(',')));
   const blob = new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tabla_control_hospitales_pereira.csv'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
