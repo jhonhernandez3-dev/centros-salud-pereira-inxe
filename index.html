@@ -33,8 +33,12 @@
 
   /* Hoja cartográfica: título + mapa en un mismo marco */
   .sheet{background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden}
-  .sheet-head{display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline; justify-content:space-between;
+  .sheet-head{display:flex; flex-wrap:wrap; gap:8px 24px; align-items:center; justify-content:space-between;
               padding:14px 20px; border-bottom:1px solid var(--line)}
+  .sh-t{flex:1 1 420px; min-width:0}
+  .sheet-head h1{margin-bottom:3px !important}
+  .btn-print{display:inline-flex; align-items:center; gap:8px; flex:none; font-weight:600; padding:8px 14px; border-color:var(--accent); color:var(--accent)}
+  .btn-print svg{flex:none}
   .sheet-head h1{margin:0; font-size:clamp(18px,2.4vw,24px); line-height:1.25; font-weight:700; letter-spacing:-.01em}
   .sheet-head p{margin:0; color:var(--muted); font-size:13px}
   #map{height:clamp(480px,74vh,820px); width:100%; background:#dfe5ea}
@@ -200,8 +204,13 @@
 
   <section class="sheet" aria-label="Mapa">
     <div class="sheet-head">
-      <h1>Mapa de afectación de hospitales de Pereira, Risaralda</h1>
-      <p>E.S.E. Salud Pereira · sismo del 10/08/2026 · Fuente de los niveles: matriz INXE-264303, hoja «Datos por sede»</p>
+      <div class="sh-t">
+        <h1>Mapa de afectación de hospitales de Pereira, Risaralda</h1>
+        <p>E.S.E. Salud Pereira · sismo del 10/08/2026 · Fuente de los niveles: matriz INXE-264303, hoja «Datos por sede»</p>
+      </div>
+      <button class="btn btn-print" id="btn-imprimir" type="button" title="Abre una hoja lista para imprimir o guardar como PDF">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z" fill="var(--surface)"/></svg>
+        Imprimir mapa</button>
     </div>
     <p id="aviso" hidden style="margin:0; padding:8px 20px; font-size:12.5px; background:#fff8e1; color:#5b4a00; border-bottom:1px solid #ecd98a">Estás viendo el archivo abierto directamente: el mapa base es Esri porque OpenStreetMap bloquea las páginas locales. Con Live Server (VS Code) se usa OpenStreetMap; ambas capas se pueden cambiar con el icono de capas.</p>
     <div id="map" role="application" aria-label="Mapa interactivo de sedes de la E.S.E. Salud Pereira"></div>
@@ -496,6 +505,11 @@ const Legend = L.Control.extend({
   }
 });
 map.addControl(new Legend());
+function ajustarLeyenda(){                                            // en ventanas bajas la leyenda se desplaza en vez de tapar los botones de la izquierda
+  const b = document.querySelector('.legend .body'); if (!b) return;
+  b.style.maxHeight = Math.max(110, map.getSize().y - 260) + 'px'; b.style.overflowY = 'auto';
+}
+ajustarLeyenda(); map.on('resize', ajustarLeyenda);
 
 /* Indicador de norte */
 const North = L.Control.extend({
@@ -541,7 +555,7 @@ try { Object.assign(pvCfg, JSON.parse(localStorage.getItem(PV_KEY) || '{}')); } 
 if (!PAPEL[pvCfg.papel]) pvCfg.papel = 'carta';
 if (pvCfg.orient !== 'h' && pvCfg.orient !== 'v') pvCfg.orient = 'h';
 pvCfg.num = pvCfg.num !== false;
-let pvAbierto = false, pvPrev = null, pvMarca = null, pvTimer = null;
+let pvAbierto = false, pvPrev = null, pvMarca = null, pvTimer = null, pvOpener = null;
 
 const pvMedidas = () => { const p = PAPEL[pvCfg.papel]; return pvCfg.orient === 'h' ? {w:p.h, h:p.w} : {w:p.w, h:p.h}; };   // ancho × alto de la hoja en mm
 function pvHoja(){
@@ -613,7 +627,7 @@ function pvEsperarMapa(){                                             // el bot�
 }
 function pvAbrir(){
   if (pvAbierto) return;
-  pvAbierto = true;
+  pvAbierto = true; pvOpener = document.activeElement;
   map.closePopup();
   pvPrev = {c: map.getCenter(), z: map.getZoom(), snap: map.options.zoomSnap};
   const mapEl = document.getElementById('map');
@@ -642,7 +656,7 @@ function pvCerrar(){
   map.invalidateSize({animate:false});
   map.setView(pvPrev.c, pvPrev.z, {animate:false});
   layoutLabels();
-  const b = document.querySelector('.viewbtns button[data-v="p"]'); if (b) b.focus();
+  const b = pvOpener && document.contains(pvOpener) ? pvOpener : document.getElementById('btn-imprimir'); if (b) b.focus();
 }
 function pvCambioHoja(){
   pvCfg.papel = pv.papel.value; pvCfg.orient = pv.orient.value;
@@ -664,6 +678,7 @@ pv.halos.addEventListener('change', () => {
 document.getElementById('pv-sedes').addEventListener('click', () => { pvEncuadrar('sedes'); pvEsperarMapa(); });
 document.getElementById('pv-muni').addEventListener('click', () => { pvEncuadrar('todo'); pvEsperarMapa(); });
 document.getElementById('pv-close').addEventListener('click', pvCerrar);
+document.getElementById('btn-imprimir').addEventListener('click', pvAbrir);
 pv.print.addEventListener('click', () => window.print());
 map.on('moveend', () => { if (pvAbierto) pvEsperarMapa(); });
 window.addEventListener('resize', () => { if (pvAbierto) pvEscala(); });
