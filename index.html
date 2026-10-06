@@ -109,6 +109,66 @@
   td.rep label{display:inline-flex; align-items:center; gap:7px; cursor:pointer}
   td.rep input{width:17px; height:17px; accent-color:#7b2cbf; cursor:pointer}
   tr.conreporte td:first-child{box-shadow:inset 4px 0 0 #7b2cbf}
+
+  /* ---------- Vista de impresión: hoja a tamaño real, reducida en pantalla con transform ---------- */
+  body.pv-open{overflow:hidden}
+  #pv{position:fixed; inset:0; z-index:5000; display:flex; flex-direction:column; background:#2f343b; color:#e9ecf0;
+      font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  #pv[hidden]{display:none !important}
+  .pv-bar{display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:10px 16px; background:#1f2328; border-bottom:1px solid #444b55}
+  .pv-bar h2{margin:0; font-size:15px; font-weight:700; color:#fff}
+  .pv-bar label{display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#d7dce3; cursor:pointer}
+  .pv-bar select{font:inherit; font-size:13px; padding:4px 6px; border-radius:6px; border:1px solid #5a6472; background:#2b3037; color:#fff}
+  .pv-bar input[type=checkbox]{width:16px; height:16px; accent-color:#68cef2}
+  .pv-sp{flex:1 1 0; min-width:0}
+  #pv-estado{font-size:12.5px; color:#aeb7c4}
+  .pvb{font:inherit; font-size:13px; padding:6px 12px; border:1px solid #5a6472; border-radius:7px; background:#3a414b; color:#fff; cursor:pointer}
+  .pvb:hover{border-color:#68cef2}
+  .pvb.primary{background:#68cef2; border-color:#68cef2; color:#00212f; font-weight:700}
+  .pvb:disabled{opacity:.5; cursor:progress}
+  .pvb:focus-visible,.pv-bar select:focus-visible{outline:2px solid #68cef2; outline-offset:2px}
+  .pv-hint{padding:6px 16px; font-size:12.5px; color:#aeb7c4; background:#262b31; border-bottom:1px solid #3b424b}
+  .pv-stage{flex:1; min-height:0; overflow:auto; padding:16px; display:flex}
+  .pv-paper{position:relative; margin:auto; flex:none; background:#fff; box-shadow:0 4px 24px rgba(0,0,0,.55)}
+  .pv-sheet{position:absolute; left:0; top:0; transform-origin:0 0; width:var(--pw); height:var(--ph); box-sizing:border-box;
+            padding:9mm 10mm 7mm; background:#fff; color:#1c2430; display:flex; flex-direction:column; gap:3.5mm; overflow:hidden; --k:1;
+            font:9pt/1.35 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  .pv-sheet[data-p="a3"]{--k:1.35}
+  .pv-head{display:flex; align-items:center; gap:5mm; padding-bottom:3mm; border-bottom:.7mm solid #ff5f00; flex:none}
+  .pv-head img{display:block; height:calc(15mm*var(--k)); width:auto; flex:none}
+  .pv-titles{min-width:0}
+  .pv-title{margin:0; font-size:calc(16pt*var(--k)); line-height:1.15; font-weight:700; color:#003146}
+  .pv-sub{margin:1mm 0 0; font-size:calc(8.5pt*var(--k)); color:#4b5563}
+  .pv-body{flex:1; min-height:0; display:flex; flex-direction:column; gap:3mm}
+  .pv-mapslot{position:relative; flex:1; min-width:0; min-height:0; border:.4mm solid #1c2430; background:#dfe5ea}
+  #pv-map #map{position:absolute !important; inset:0; width:auto !important; height:auto !important; min-height:0}
+  /* En la hoja solo quedan escala, norte y créditos del mapa: los controles interactivos se ocultan */
+  #pv .leaflet-control-zoom,#pv .leaflet-control-layers,#pv .viewbtns,#pv .legend{display:none !important}
+  /* Franja inferior de ALTURA FIJA (así el mapa no cambia de tamaño al cambiar el listado): niveles | ubicación | listado */
+  .pv-side{flex:none; height:calc(36mm*var(--k)); display:grid; grid-template-columns:calc(50mm*var(--k)) calc(47mm*var(--k)) 1fr; gap:3mm; overflow:hidden; font-size:calc(8.5pt*var(--k))}
+  .pv-sheet[data-o="v"] .pv-side{height:calc(46mm*var(--k)); grid-template-columns:calc(41mm*var(--k)) calc(36mm*var(--k)) 1fr}
+  .pv-side section{border:.3mm solid #b8c0cb; border-radius:1.5mm; padding:2mm 2.6mm; overflow:hidden; min-width:0}
+  .pv-side h4{margin:0 0 1mm; font-size:calc(9pt*var(--k)); line-height:1.25; color:#003146}
+  .pv-side ul{list-style:none; margin:0; padding:0}
+  .pv-side li{display:flex; align-items:center; gap:2mm; margin:1mm 0; line-height:1.2}
+  .pv-side li b{margin-left:auto; padding-left:2mm; font-variant-numeric:tabular-nums}
+  .pv-dot{width:3.6mm; height:3.6mm; border-radius:50%; border:.4mm solid #111; flex:none}
+  .pv-dot.dash{border-style:dashed; background:#c9ced6}
+  .pv-dot.ring{border:.3mm dashed #5a6472; background:rgba(120,130,145,.18)}
+  .pv-list ul{columns:calc(32mm*var(--k)) auto; column-gap:2.5mm; font-size:calc(6.2pt*var(--k))}
+  .pv-list li{display:block; margin:0; line-height:1.3; break-inside:avoid; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .pv-list li b{display:inline-block; min-width:3.2mm; margin:0 .6mm 0 0; padding:0; text-align:right}
+  .pv-list p{margin:0; line-height:1.35; color:#4b5563}
+  .pv-notes{flex:none; font-size:calc(7pt*var(--k)); line-height:1.35; color:#4b5563}
+  .leaflet-tooltip.lblnum{background:transparent; border:0; box-shadow:none; padding:0; margin:0; color:#111; white-space:nowrap; pointer-events:none;
+    font:700 var(--num-size,9px)/1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    text-shadow:-1px 0 #fff,1px 0 #fff,0 -1px #fff,0 1px #fff,0 0 3px #fff}
+  .leaflet-tooltip.lblnum:before{display:none}
+  .pv-foot{display:flex; justify-content:space-between; gap:6mm; flex:none; padding-top:2mm; border-top:.3mm solid #b8c0cb; font-size:calc(7.5pt*var(--k)); color:#4b5563}
+  #pv, #pv *{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+  @media (max-width:640px){
+    .pv-bar{padding:8px 10px; gap:6px 10px} .pv-hint{padding:5px 10px} .pv-stage{padding:8px}
+  }
   @media (max-width:640px){
     .kpis{grid-template-columns:1fr 1fr; gap:8px} .kpi{padding:10px} .kpi b{font-size:22px}
     .legend{min-width:0; max-width:210px; padding:8px 10px; font-size:12px}
@@ -118,6 +178,16 @@
     .brand .by{font-size:12px}
   }
   @media print{ body{background:#fff} .page{max-width:none} .tablewrap{overflow:visible} }
+  /* Al imprimir con la vista abierta: solo sale la hoja, a tamaño real y sin márgenes (el @page lo pone el script) */
+  @media print{
+    html,body{background:#fff !important; height:auto !important; overflow:visible !important; margin:0 !important}
+    body.pv-open > *:not(#pv){display:none !important}
+    body.pv-open #pv{position:static; display:block; background:#fff; overflow:visible}
+    body.pv-open .pv-bar, body.pv-open .pv-hint{display:none !important}
+    body.pv-open .pv-stage{display:block; padding:0; overflow:visible}
+    body.pv-open .pv-paper{position:static; width:auto !important; height:auto !important; margin:0; box-shadow:none}
+    body.pv-open .pv-sheet{position:relative; transform:none !important; height:calc(var(--ph) - .6mm); break-inside:avoid; page-break-after:avoid}
+  }
 </style>
 </head>
 <body>
@@ -183,6 +253,45 @@
     <li><b>Mapa base:</b> © colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL); capas alternas Esri y OpenTopoMap. Visor: Leaflet 1.9.4.</li>
   </ul>
 </div>
+
+<!-- Vista de impresión (se abre con «Imprimir mapa» dentro del mapa) -->
+<div id="pv" hidden role="dialog" aria-modal="true" aria-labelledby="pv-ttl">
+  <div class="pv-bar">
+    <h2 id="pv-ttl">Vista de impresión</h2>
+    <label>Papel <select id="pv-papel">
+      <option value="carta" title="8,5 × 11 pulgadas">Carta</option><option value="oficio" title="8,5 × 13 pulgadas">Oficio</option>
+      <option value="a4">A4</option><option value="a3">A3</option></select></label>
+    <label>Orientación <select id="pv-orient"><option value="h">Horizontal</option><option value="v">Vertical</option></select></label>
+    <label><input type="checkbox" id="pv-nombres"> Nombres</label>
+    <label><input type="checkbox" id="pv-halos"> Círculos de error</label>
+    <label title="Pone un número dentro del punto de las sedes cuyo nombre no cabe y las lista abajo"><input type="checkbox" id="pv-num"> Numerar sin nombre</label>
+    <button class="pvb" id="pv-sedes" type="button">Ver sedes</button>
+    <button class="pvb" id="pv-muni" type="button">Ver municipio</button>
+    <span class="pv-sp"></span>
+    <span id="pv-estado" role="status" aria-live="polite"></span>
+    <button class="pvb primary" id="pv-print" type="button">Imprimir</button>
+    <button class="pvb" id="pv-close" type="button">Cerrar</button>
+  </div>
+  <div class="pv-hint">Mueve y acerca el mapa dentro de la hoja para elegir qué se imprime. En la ventana de impresión puedes elegir «Guardar como PDF». <span id="pv-aviso"></span></div>
+  <div class="pv-stage" id="pv-stage"><div class="pv-paper" id="pv-paper">
+    <div class="pv-sheet" id="pv-sheet" data-o="h" data-p="carta">
+      <div class="pv-head">
+        <img id="pv-logo" alt="Logo de Inxe Ingeniería y Proyectos SAS">
+        <div class="pv-titles">
+          <div class="pv-title">Mapa de afectación de hospitales de Pereira, Risaralda</div>
+          <p class="pv-sub">E.S.E. Salud Pereira · sismo del 10/08/2026 · Fuente de los niveles: matriz INXE-264303, hoja «Datos por sede»</p>
+        </div>
+      </div>
+      <div class="pv-body">
+        <div class="pv-mapslot" id="pv-map"></div>
+        <aside class="pv-side" id="pv-side" aria-label="Leyenda"></aside>
+      </div>
+      <div class="pv-notes" id="pv-notes"></div>
+      <div class="pv-foot"><span>Hecho por Inxe Ingeniería y Proyectos SAS</span><span id="pv-fecha"></span></div>
+    </div>
+  </div></div>
+</div>
+<style id="pv-page"></style>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -297,28 +406,29 @@ function refresh(){
   items.forEach(it => { if (visible(it)) it.m.addTo(map); });
   if (verNombres) layoutLabels();
 }
-const radioPorZoom = z => z <= 10 ? 6 : z === 11 ? 8 : z === 12 ? 9 : 11;
+const radioPorZoom = z => { z = Math.round(z); return z <= 10 ? 6 : z === 11 ? 8 : z === 12 ? 9 : 11; };   // round: la vista de impresión usa zoom fraccionario
 
 /* Nombre de cada sede DEBAJO de su punto. La letra crece con el zoom (10 → 13 px) y las etiquetas no llevan caja;
    en cada zoom solo se dibujan las que caben sin taparse entre sí ni tapar otros puntos (primero las más graves).
    Si no cabe debajo, se intenta a la derecha, a la izquierda o arriba. Al acercar el mapa aparecen todas.
    En la etiqueta, «Puesto de Salud» se abrevia «P.S.»; el nombre completo está en el popup y al pasar el cursor. */
-let verNombres = false;
+let verNombres = false, pvGancho = null;                              // pvGancho: la vista de impresión numera las sedes sin nombre tras cada rotulado
 const corto = r => r.sede.replace(/^Puesto de Salud /, 'P.S. ');
-const fuentePorZoom = z => z <= 10 ? 10 : z === 11 ? 11 : z === 12 ? 11.5 : z === 13 ? 12 : z === 14 ? 12.5 : 13;
+const fuentePorZoom = z => { z = Math.round(z); return z <= 10 ? 10 : z === 11 ? 11 : z === 12 ? 11.5 : z === 13 ? 12 : z === 14 ? 12.5 : 13; };
 const _cv = document.createElement('canvas').getContext('2d');
 function layoutLabels(){
   const z = map.getZoom(), fs = fuentePorZoom(z);
   map.getContainer().style.setProperty('--lbl-size', fs + 'px');
   items.forEach(it => it.m.unbindTooltip());
   const hover = it => it.m.bindTooltip(esc(it.r.sede), {direction:'top', offset:[0,-10], className:'lbl'});
-  if (!verNombres) { items.forEach(hover); return; }
+  if (!verNombres) { items.forEach(hover); if (pvGancho) pvGancho(); return; }
   _cv.font = `600 ${fs}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`;
   const R = radioPorZoom(z), placed = [];
   const hit = (a, b) => !(a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
-  const cr = map.getContainer().getBoundingClientRect();
-  map.getContainer().querySelectorAll('.leaflet-control').forEach(c => { const b = c.getBoundingClientRect();    // leyenda, zoom, capas, norte…: no se rotula debajo de ellos
-    if (b.width && b.height) placed.push([b.left - cr.left - 2, b.top - cr.top - 2, b.right - cr.left + 2, b.bottom - cr.top + 2]); });
+  const cont = map.getContainer(), cr = cont.getBoundingClientRect();
+  const sx = cr.width / (cont.offsetWidth || 1), sy = cr.height / (cont.offsetHeight || 1);   // la hoja de la vista de impresión se ve reducida (transform: scale)
+  cont.querySelectorAll('.leaflet-control').forEach(c => { const b = c.getBoundingClientRect();    // leyenda, zoom, capas, norte…: no se rotula debajo de ellos
+    if (b.width && b.height) placed.push([(b.left - cr.left) / sx - 2, (b.top - cr.top) / sy - 2, (b.right - cr.left) / sx + 2, (b.bottom - cr.top) / sy + 2]); });
   items.filter(visible).forEach(it => { const p = map.latLngToContainerPoint([it.r.lat, it.r.lon]); placed.push([p.x-R-2, p.y-R-2, p.x+R+2, p.y+R+2]); });
   [...items].reverse().forEach(it => {                                  // graves primero
     const txt = corto(it.r); let dir = null;
@@ -332,6 +442,7 @@ function layoutLabels(){
     if (dir) it.m.bindTooltip(esc(txt), {direction:dir, offset:off[dir], className:'lbl2', permanent:true});
     else hover(it);
   });
+  if (pvGancho) pvGancho();
 }
 refresh();
 map.on('resize', () => { if (verNombres) layoutLabels(); });
@@ -406,12 +517,157 @@ const Views = L.Control.extend({
   onAdd(){
     const el = L.DomUtil.create('div', 'ctl viewbtns');
     L.DomEvent.disableClickPropagation(el);
-    el.innerHTML = `<button type="button" data-v="s">Ver sedes</button><button type="button" data-v="m">Ver municipio</button>`;
-    el.addEventListener('click', e => { const v = e.target.dataset.v; if (v === 's') verSedes(); if (v === 'm') verMunicipio(); });
+    el.innerHTML = `<button type="button" data-v="s">Ver sedes</button><button type="button" data-v="m">Ver municipio</button><button type="button" data-v="p" title="Abre una hoja lista para imprimir o guardar como PDF">Imprimir mapa</button>`;
+    el.addEventListener('click', e => { const v = e.target.dataset.v; if (v === 's') verSedes(); if (v === 'm') verMunicipio(); if (v === 'p') pvAbrir(); });
     return el;
   }
 });
 map.addControl(new Views());
+
+/* ---------- Vista de impresión ----------
+   «Imprimir mapa» abre una hoja a tamaño real (Carta, Oficio, A4 o A3; horizontal o vertical) con título, logo, leyenda,
+   escala gráfica, norte y fecha. Para no duplicar nada, el MISMO mapa se mueve a la hoja mientras está abierta (mismos puntos,
+   colores, marcas «Ya tuvo reporte», filtros y nombres) y vuelve a su lugar, con su vista anterior, al cerrar.
+   En pantalla la hoja se muestra reducida (transform: scale); al imprimir, el CSS @media print la deja a tamaño real. */
+const PAPEL = {carta:{w:215.9, h:279.4}, oficio:{w:215.9, h:330.2}, a4:{w:210, h:297}, a3:{w:297, h:420}};   // mm, en vertical
+const PV_KEY = 'hospitalesPereira.impresion.v1', MM = 96 / 25.4;
+const pv = {el: document.getElementById('pv'), sheet: document.getElementById('pv-sheet'), paper: document.getElementById('pv-paper'),
+            stage: document.getElementById('pv-stage'), slot: document.getElementById('pv-map'), side: document.getElementById('pv-side'),
+            print: document.getElementById('pv-print'), estado: document.getElementById('pv-estado'),
+            papel: document.getElementById('pv-papel'), orient: document.getElementById('pv-orient'),
+            nombres: document.getElementById('pv-nombres'), halos: document.getElementById('pv-halos'), num: document.getElementById('pv-num')};
+const pvCfg = {papel:'carta', orient:'h', num:true};
+try { Object.assign(pvCfg, JSON.parse(localStorage.getItem(PV_KEY) || '{}')); } catch (e) {}
+if (!PAPEL[pvCfg.papel]) pvCfg.papel = 'carta';
+if (pvCfg.orient !== 'h' && pvCfg.orient !== 'v') pvCfg.orient = 'h';
+pvCfg.num = pvCfg.num !== false;
+let pvAbierto = false, pvPrev = null, pvMarca = null, pvTimer = null;
+
+const pvMedidas = () => { const p = PAPEL[pvCfg.papel]; return pvCfg.orient === 'h' ? {w:p.h, h:p.w} : {w:p.w, h:p.h}; };   // ancho × alto de la hoja en mm
+function pvHoja(){
+  const {w, h} = pvMedidas();
+  pv.el.style.setProperty('--pw', w + 'mm'); pv.el.style.setProperty('--ph', h + 'mm');
+  pv.sheet.dataset.o = pvCfg.orient; pv.sheet.dataset.p = pvCfg.papel;
+  document.getElementById('pv-page').textContent = `@page{size:${w}mm ${h}mm; margin:0}`;
+  pvEscala();
+}
+function pvEscala(){                                                  // reduce la hoja para que quepa en la ventana (nunca la agranda)
+  const {w, h} = pvMedidas(), st = pv.stage;
+  const k = Math.max(.2, Math.min(1, (st.clientWidth - 32) / (w * MM), (st.clientHeight - 32) / (h * MM)));
+  pv.paper.style.width = (w * MM * k) + 'px'; pv.paper.style.height = (h * MM * k) + 'px';
+  pv.sheet.style.transform = `scale(${k})`;
+}
+let pvNum = [];                                                       // sedes visibles sin nombre en el mapa, en el orden en que se numeran
+function pvLista(){                                                   // tercera columna de la franja: listado de sedes numeradas (o resumen)
+  const el = document.getElementById('pv-list'), vis = items.filter(visible);
+  if (!el) return;
+  el.innerHTML = pvNum.length
+    ? `<h4>Sedes sin nombre en el mapa (número en el punto)</h4><ul>${pvNum.map((it, i) => `<li><b>${i + 1}.</b>${esc(corto(it.r))}</li>`).join('')}</ul>`
+    : `<h4>Sedes en el mapa</h4><p><b>${vis.length}</b> de ${rows.length}.${vis.length && pv.num.checked ? ' Todas llevan su nombre.' : ''}</p>`;
+  const sin = vis.filter(it => !(it.m.getTooltip() && it.m.getTooltip().options.permanent)).length;
+  document.getElementById('pv-aviso').textContent = !pv.num.checked && sin
+    ? `Hay ${sin} sede${sin > 1 ? 's' : ''} sin nombre en la hoja: acerca el mapa, usa un papel más grande o activa «Numerar sin nombre».` : '';
+}
+function pvNumerar(){                                                 // las sedes cuyo nombre no cabe llevan un número dentro del punto y van en el listado
+  pvNum = [];
+  if (pv.num.checked) {
+    pvNum = items.filter(it => visible(it) && !(it.m.getTooltip() && it.m.getTooltip().options.permanent))
+      .sort((a, b) => ORDEN.indexOf(a.r.nivel) - ORDEN.indexOf(b.r.nivel) || a.r.sede.localeCompare(b.r.sede, 'es'));
+    const R = radioPorZoom(map.getZoom());
+    map.getContainer().style.setProperty('--num-size', Math.max(8, R) + 'px');
+    pvNum.forEach((it, i) => { it.m.unbindTooltip(); it.m.bindTooltip(String(i + 1), {direction:'center', offset:[0, 0], className:'lblnum', permanent:true}); });
+  }
+  pvLista();
+}
+function pvLeyenda(){                                                 // leyenda estática con lo que realmente se ve en el mapa
+  const vis = items.filter(visible), rep = it => reportadas.has(it.r.sede);
+  const niv = ORDEN.filter(n => state.niveles[n]).map(n => `<li><span class="pv-dot" style="background:${D.niveles[n].hex}"></span>
+    <span>${esc(n === 'Sin reporte' ? 'Sin reporte' : n + ' · ' + D.niveles[n].equiv)}</span><b>${vis.filter(it => it.r.nivel === n && !rep(it)).length}</b></li>`).join('');
+  const nRep = vis.filter(rep).length, exa = vis.filter(it => it.r.precision === 'exacta').length, apx = vis.length - exa;
+  const loc = [exa && `<li><span class="pv-dot" style="background:#fff"></span><span>Ubicación exacta</span><b>${exa}</b></li>`,
+               apx && `<li><span class="pv-dot dash"></span><span>Ubicación aproximada</span><b>${apx}</b></li>`,
+               apx && state.halos && `<li><span class="pv-dot ring"></span><span>Radio de error (aprox.)</span></li>`].filter(Boolean).join('');
+  pv.side.innerHTML = `<section><h4>Nivel de afectación (Excel)</h4><ul>${niv}
+      ${nRep ? `<li><span class="pv-dot" style="background:${MORADO}"></span><span>Ya tuvo reporte (morado)</span><b>${nRep}</b></li>` : ''}</ul></section>
+    <section><h4>Ubicación</h4><ul>${loc}</ul></section><section class="pv-list" id="pv-list"></section>`;
+  document.getElementById('pv-notes').textContent = `Color = nivel de afectación de la matriz INXE-264303 (Excel)${nRep ? '; morado = marcada «Ya tuvo reporte» (seguimiento del usuario, no cambia el nivel)' : ''}. P.S. = Puesto de Salud. `
+    + (apx ? 'Las ubicaciones aproximadas (borde punteado) se estimaron a partir de la dirección con datos de OpenStreetMap: la sede debería estar dentro del círculo; no son coordenadas de campo.' : '');
+  pvLista();
+}
+const pvTodo = () => { const b = limite.getBounds(); return L.latLngBounds(b.getSouthWest(), b.getNorthEast()).extend(ptsBounds); };
+function pvEncuadrar(que){
+  map.fitBounds(que === 'sedes' ? ptsBounds.pad(.06) : pvTodo().pad(.02), {animate:false});
+  layoutLabels();
+}
+function pvEsperarMapa(){                                             // el botón «Imprimir» se activa cuando el mapa base terminó de cargar
+  clearInterval(pvTimer);
+  const capa = [osm, esri, topo].find(l => map.hasLayer(l)), t0 = Date.now(); let quietos = 0;
+  pv.print.disabled = true; pv.estado.textContent = 'Cargando el mapa base…';
+  pvTimer = setInterval(() => {
+    quietos = capa && capa._loading ? 0 : quietos + 1;
+    if (quietos >= 3 || Date.now() - t0 > 10000) {
+      clearInterval(pvTimer); pv.print.disabled = false;
+      pv.estado.textContent = quietos >= 3 ? '' : 'El mapa base tardó en cargar: revisa la hoja antes de imprimir.';
+    }
+  }, 250);
+}
+function pvAbrir(){
+  if (pvAbierto) return;
+  pvAbierto = true;
+  map.closePopup();
+  pvPrev = {c: map.getCenter(), z: map.getZoom(), snap: map.options.zoomSnap};
+  const mapEl = document.getElementById('map');
+  pvMarca = document.createElement('div'); pvMarca.style.height = mapEl.offsetHeight + 'px';   // mantiene el alto de la página mientras el mapa está en la hoja
+  mapEl.parentNode.insertBefore(pvMarca, mapEl);
+  pv.slot.appendChild(mapEl);
+  document.querySelector('.page').inert = true;
+  document.body.classList.add('pv-open'); pv.el.hidden = false;
+  document.getElementById('pv-logo').src = document.querySelector('.brand img').src;
+  document.getElementById('pv-fecha').textContent = 'Impreso el ' + new Date().toLocaleDateString('es-CO', {day:'numeric', month:'long', year:'numeric'});
+  pv.papel.value = pvCfg.papel; pv.orient.value = pvCfg.orient; pv.nombres.checked = verNombres; pv.halos.checked = state.halos; pv.num.checked = pvCfg.num;
+  pvHoja();
+  map.options.zoomSnap = .25;                                         // zoom fraccionario: el municipio llena la hoja
+  map.invalidateSize({animate:false});
+  pvLeyenda(); pvGancho = pvNumerar;                                   // primero la leyenda: pvEncuadrar → layoutLabels → pvNumerar rellena el listado
+  pvEncuadrar('todo'); pvEsperarMapa();
+  document.getElementById('pv-close').focus();
+}
+function pvCerrar(){
+  if (!pvAbierto) return;
+  pvAbierto = false; clearInterval(pvTimer); pvGancho = null; pvNum = [];
+  const mapEl = document.getElementById('map');
+  pvMarca.parentNode.insertBefore(mapEl, pvMarca); pvMarca.remove(); pvMarca = null;
+  pv.el.hidden = true; document.body.classList.remove('pv-open'); document.querySelector('.page').inert = false;
+  map.options.zoomSnap = pvPrev.snap;
+  map.invalidateSize({animate:false});
+  map.setView(pvPrev.c, pvPrev.z, {animate:false});
+  layoutLabels();
+  const b = document.querySelector('.viewbtns button[data-v="p"]'); if (b) b.focus();
+}
+function pvCambioHoja(){
+  pvCfg.papel = pv.papel.value; pvCfg.orient = pv.orient.value;
+  try { localStorage.setItem(PV_KEY, JSON.stringify(pvCfg)); } catch (e) {}
+  pvHoja(); map.invalidateSize({animate:false}); pvEncuadrar('todo'); pvEsperarMapa();
+}
+pv.papel.addEventListener('change', pvCambioHoja);
+pv.orient.addEventListener('change', pvCambioHoja);
+pv.num.addEventListener('change', () => {
+  pvCfg.num = pv.num.checked; try { localStorage.setItem(PV_KEY, JSON.stringify(pvCfg)); } catch (e) {}
+  layoutLabels();                                                     // vuelve a rotular y (des)numera
+});
+pv.nombres.addEventListener('change', () => { verNombres = pv.nombres.checked; document.getElementById('lbl').checked = verNombres; layoutLabels(); });
+pv.halos.addEventListener('change', () => {
+  state.halos = pv.halos.checked;
+  document.querySelectorAll('.legend input[data-t="halos"]').forEach(i => { i.checked = state.halos; });
+  refresh(); pvLeyenda();
+});
+document.getElementById('pv-sedes').addEventListener('click', () => { pvEncuadrar('sedes'); pvEsperarMapa(); });
+document.getElementById('pv-muni').addEventListener('click', () => { pvEncuadrar('todo'); pvEsperarMapa(); });
+document.getElementById('pv-close').addEventListener('click', pvCerrar);
+pv.print.addEventListener('click', () => window.print());
+map.on('moveend', () => { if (pvAbierto) pvEsperarMapa(); });
+window.addEventListener('resize', () => { if (pvAbierto) pvEscala(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pvAbierto) pvCerrar(); });
 
 /* ---------- Tablas ---------- */
 const chip = r => `<span class="chip"><span class="dot${r.precision === 'aprox' ? ' aprox' : ''}" style="background:${r.hex}"></span>${esc(r.nivel)}</span>`;
